@@ -2,6 +2,14 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 28
+    signingConfigs {
+        release {
+            storeFile file(property('keyStoreFile'))
+            storePassword property('keyStorePassword')
+            keyAlias property('keyAlias')
+            keyPassword property('keyPassword')
+        }
+    }
     defaultConfig {
         applicationId "telegram.contest.chart"
         minSdkVersion 16
@@ -12,6 +20,7 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            signingConfig signingConfigs.release
         }
     }
 }
