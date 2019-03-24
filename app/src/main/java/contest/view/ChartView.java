@@ -36,8 +36,6 @@ import contest.utils.GeneralUtils;
  */
 public class ChartView extends View implements RangeListener {
 
-    static int iteration = 0; // TODO
-
     public static final float NO_BOUND = Float.NaN;
 
     private static final int HINT_INVISIBLE = 0;
@@ -130,8 +128,132 @@ public class ChartView extends View implements RangeListener {
     private Paint hintCopyPaint;
 
     private float touchBeginX;
-    private GestureDetector gestureDetector;
-    private ScaleGestureDetector scaleGestureDetector;
+    private ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.OnScaleGestureListener() {
+        private float oldFocusX;
+
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            if (!gesturesEnabled) {
+                return false;
+            }
+            float x = detector.getFocusX() / getMeasuredWidth();
+            float center = leftBound + (rightBound - leftBound) * x;
+            float width = (rightBound - leftBound) / (detector.getScaleFactor() * detector.getScaleFactor());
+            width = Math.max(width, windowSizeMinRows);
+            float offset = (detector.getFocusX() - oldFocusX) / getMeasuredWidth() * width;
+            oldFocusX = detector.getFocusX();
+            setBounds(center - width * x - offset, center + width * (1 - x) - offset, true);
+            return true;
+        }
+
+        @Override
+        public boolean onScaleBegin(ScaleGestureDetector detector) {
+            if (!gesturesEnabled) {
+                return false;
+            }
+            oldFocusX = detector.getFocusX();
+            getParent().requestDisallowInterceptTouchEvent(true);
+            return true;
+        }
+
+        @Override
+        public void onScaleEnd(ScaleGestureDetector detector) {
+
+        }
+    });
+    private GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.OnGestureListener() {
+        private ValueAnimator flingAnimator;
+
+        @Override
+        public boolean onDown(MotionEvent e) {
+            if (!gesturesEnabled) {
+                return true;
+            }
+            if (flingAnimator != null) {
+                flingAnimator.cancel();
+                flingAnimator = null;
+            }
+            return false;
+        }
+
+        @Override
+        public void onShowPress(MotionEvent e) {
+
+        }
+
+        @Override
+        public boolean onSingleTapUp(MotionEvent event) {
+            playSoundEffect(SoundEffectConstants.CLICK);
+            if (hintState == HINT_VISIBLE
+                    && event.getX() > hintBitmapDstRect.left
+                    && event.getX() < hintBitmapDstRect.right
+                    && event.getY() > hintBitmapDstRect.top
+                    && event.getY() < hintBitmapDstRect.bottom) {
+                setSelectedRow(-1);
+                hintState = HINT_DISAPPEARING;
+                startHintAnimation(
+                        hintBitmapDstRect.left,
+                        hintBitmapDstRect.top,
+                        hintBitmapDstRect.right,
+                        hintBitmapDstRect.bottom
+                );
+            } else {
+                selectNearest(event.getX(), event.getY(), fingerSize);
+            }
+            return true;
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            getParent().requestDisallowInterceptTouchEvent(true);
+            if (!gesturesEnabled) {
+                selectNearest(e2.getX(), e2.getY(), fingerSize / 2);
+            } else {
+                float newLeftBound = Math.max(0, leftBound + screenToGridX(distanceX) - screenToGridX(0));
+                float newRightBound = newLeftBound + rightBound - leftBound;
+                if (newRightBound > chartDataSource.getRowsCount() - 1) {
+                    newRightBound = chartDataSource.getRowsCount() - 1;
+                    newLeftBound = newRightBound - (rightBound - leftBound);
+                }
+                setBounds(newLeftBound, newRightBound, true);
+            }
+            return true;
+        }
+
+        @Override
+        public void onLongPress(MotionEvent e) {
+
+        }
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            if (!gesturesEnabled) {
+                return false;
+            }
+            float normalVelocity = (float) (Math.pow(Math.abs(velocityX), 0.8f) * Math.signum(velocityX));
+            final float rows = -(rightBound - leftBound) * normalVelocity / getMeasuredWidth();
+            flingAnimator = ValueAnimator.ofFloat(0, rows);
+            flingAnimator.setDuration(500);
+            flingAnimator.setInterpolator(new DecelerateInterpolator());
+            final float initialLeftBound = leftBound;
+            final float initialRightBound = rightBound;
+            flingAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    float value = (float) animation.getAnimatedValue();
+                    float newLeftBound = Math.max(0, initialLeftBound + value);
+                    float newRightBound = newLeftBound + initialRightBound - initialLeftBound;
+                    if (newRightBound > chartDataSource.getRowsCount() - 1) {
+                        newRightBound = chartDataSource.getRowsCount() - 1;
+                        newLeftBound = newRightBound - (initialRightBound - initialLeftBound);
+                    }
+                    setBounds(newLeftBound, newRightBound, true);
+                }
+            });
+            flingAnimator.start();
+            return true;
+        }
+    });
 
     private RangeListener listener;
 
@@ -182,22 +304,22 @@ public class ChartView extends View implements RangeListener {
             chartAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override
                 public void onAnimationUpdate(ValueAnimator animator) {
-                    chartPaint.setAlpha((Integer) chartAnimator.getAnimatedValue("alpha"));
+                    chartPaint.setAlpha((Integer) animator.getAnimatedValue("alpha"));
                     updateHint();
                     if (drawOldVertGrid) {
-                        oldVertGridLinePaint.setAlpha((Integer) chartAnimator.getAnimatedValue("oldGridAlpha"));
-                        oldVertGridTextPaint.setAlpha((Integer) chartAnimator.getAnimatedValue("oldGridAlpha"));
-                        vertGridLinePaint.setAlpha((Integer) chartAnimator.getAnimatedValue("newGridAlpha"));
-                        vertGridTextPaint.setAlpha((Integer) chartAnimator.getAnimatedValue("newGridAlpha"));
+                        oldVertGridLinePaint.setAlpha((Integer) animator.getAnimatedValue("oldGridAlpha"));
+                        oldVertGridTextPaint.setAlpha((Integer) animator.getAnimatedValue("oldGridAlpha"));
+                        vertGridLinePaint.setAlpha((Integer) animator.getAnimatedValue("newGridAlpha"));
+                        vertGridTextPaint.setAlpha((Integer) animator.getAnimatedValue("newGridAlpha"));
                     } else {
                         vertGridLinePaint.setAlpha(255);
                         vertGridTextPaint.setAlpha(255);
                     }
                     if (!topBoundFixed) {
-                        topBound = (float) chartAnimator.getAnimatedValue("topBound");
+                        topBound = (float) animator.getAnimatedValue("topBound");
                     }
                     if (!bottomBoundFixed) {
-                        bottomBound = (float) chartAnimator.getAnimatedValue("bottomBound");
+                        bottomBound = (float) animator.getAnimatedValue("bottomBound");
                     }
                     updateGridOffsets();
                     updateChart(false);
@@ -298,132 +420,6 @@ public class ChartView extends View implements RangeListener {
         setHintBorderRadius(GeneralUtils.dp2px(getContext(), 4));
         setGesturesEnabled(true);
         updateGridOffsets();
-        scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.OnScaleGestureListener() {
-            float oldFocusX;
-
-            @Override
-            public boolean onScale(ScaleGestureDetector detector) {
-                if (!gesturesEnabled) {
-                    return false;
-                }
-                float x = detector.getFocusX() / getMeasuredWidth();
-                float center = leftBound + (rightBound - leftBound) * x;
-                float width = (rightBound - leftBound) / (detector.getScaleFactor() * detector.getScaleFactor());
-                width = Math.max(width, windowSizeMinRows);
-                float offset = (detector.getFocusX() - oldFocusX) / getMeasuredWidth() * width;
-                oldFocusX = detector.getFocusX();
-                setBounds(center - width * x - offset, center + width * (1 - x) - offset, true);
-                return true;
-            }
-
-            @Override
-            public boolean onScaleBegin(ScaleGestureDetector detector) {
-                if (!gesturesEnabled) {
-                    return false;
-                }
-                oldFocusX = detector.getFocusX();
-                getParent().requestDisallowInterceptTouchEvent(true);
-                return true;
-            }
-
-            @Override
-            public void onScaleEnd(ScaleGestureDetector detector) {
-
-            }
-        });
-        gestureDetector = new GestureDetector(getContext(), new GestureDetector.OnGestureListener() {
-            private ValueAnimator flingAnimator;
-
-            @Override
-            public boolean onDown(MotionEvent e) {
-                if (!gesturesEnabled) {
-                    return true;
-                }
-                if (flingAnimator != null) {
-                    flingAnimator.cancel();
-                    flingAnimator = null;
-                }
-                return false;
-            }
-
-            @Override
-            public void onShowPress(MotionEvent e) {
-
-            }
-
-            @Override
-            public boolean onSingleTapUp(MotionEvent event) {
-                playSoundEffect(SoundEffectConstants.CLICK);
-                if (hintState == HINT_VISIBLE
-                        && event.getX() > hintBitmapDstRect.left
-                        && event.getX() < hintBitmapDstRect.right
-                        && event.getY() > hintBitmapDstRect.top
-                        && event.getY() < hintBitmapDstRect.bottom) {
-                    setSelectedRow(-1);
-                    hintState = HINT_DISAPPEARING;
-                    startHintAnimation(
-                            hintBitmapDstRect.left,
-                            hintBitmapDstRect.top,
-                            hintBitmapDstRect.right,
-                            hintBitmapDstRect.bottom
-                    );
-                } else {
-                    selectNearest(event.getX(), event.getY(), fingerSize);
-                }
-                return true;
-            }
-
-            @Override
-            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                getParent().requestDisallowInterceptTouchEvent(true);
-                if (!gesturesEnabled) {
-                    selectNearest(e2.getX(), e2.getY(), fingerSize / 2);
-                } else {
-                    float newLeftBound = Math.max(0, leftBound + screenToGridX(distanceX) - screenToGridX(0));
-                    float newRightBound = newLeftBound + rightBound - leftBound;
-                    if (newRightBound > chartDataSource.getRowsCount() - 1) {
-                        newRightBound = chartDataSource.getRowsCount() - 1;
-                        newLeftBound = newRightBound - (rightBound - leftBound);
-                    }
-                    setBounds(newLeftBound, newRightBound, true);
-                }
-                return true;
-            }
-
-            @Override
-            public void onLongPress(MotionEvent e) {
-
-            }
-
-            @Override
-            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                if (!gesturesEnabled) {
-                    return false;
-                }
-                float normalVelocity = (float) (Math.pow(Math.abs(velocityX), 0.8f) * Math.signum(velocityX));
-                final float rows = -(rightBound - leftBound) * normalVelocity / getMeasuredWidth();
-                flingAnimator = ValueAnimator.ofFloat(0, rows);
-                flingAnimator.setDuration(500);
-                flingAnimator.setInterpolator(new DecelerateInterpolator());
-                final float initialLeftBound = leftBound;
-                final float initialRightBound = rightBound;
-                flingAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator animation) {
-                        float value = (float) animation.getAnimatedValue();
-                        float newLeftBound = Math.max(0, initialLeftBound + value);
-                        float newRightBound = newLeftBound + initialRightBound - initialLeftBound;
-                        if (newRightBound > chartDataSource.getRowsCount() - 1) {
-                            newRightBound = chartDataSource.getRowsCount() - 1;
-                            newLeftBound = newRightBound - (initialRightBound - initialLeftBound);
-                        }
-                        setBounds(newLeftBound, newRightBound, true);
-                    }
-                });
-                flingAnimator.start();
-                return true;
-            }
-        });
     }
 
     public void setChartNavigationView(RangeListener listener) {
@@ -529,6 +525,7 @@ public class ChartView extends View implements RangeListener {
     public void setClipToPadding(boolean clipToPadding) {
         this.clipToPadding = clipToPadding;
         updateChart(true);
+        updateHint();
     }
 
     public void setFingerSize(float fingerSize) {
@@ -824,7 +821,6 @@ public class ChartView extends View implements RangeListener {
 
         int lineIdx = 0;
         boolean optimize = (visibleLineColumnSources.size() * (righterBound - lefterBound) > minPointsForOptimizations);
-//        int totalSkippedLines = 0;
         for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
             int optimizedLines = 0;
             float firstX = gridToScreenX(lefterBound);
@@ -832,8 +828,6 @@ public class ChartView extends View implements RangeListener {
             for (int row = 0; row < righterBound - lefterBound; ++row) {
                 int offset = 4 * (row - optimizedLines);
 
-                currentLines[offset] = row == 0 ? firstX : currentLines[offset + 2 - 4];
-                currentLines[offset + 1] = row == 0 ? gridToScreenY(columnDataSource.getValue(row + lefterBound)) : currentLines[offset + 3 - 4];
                 currentLines[offset + 2] = firstX + (row + 1) * gridStepX;
                 currentLines[offset + 3] = gridToScreenY(columnDataSource.getValue(row + lefterBound + 1));
 
@@ -843,13 +837,14 @@ public class ChartView extends View implements RangeListener {
                     optimizedLines++;
                     currentLines[offset - 4 + 2] = currentLines[offset + 2];
                     currentLines[offset - 4 + 3] = currentLines[offset + 3];
+                } else {
+                    currentLines[offset] = row == 0 ? firstX : currentLines[offset + 2 - 4];
+                    currentLines[offset + 1] = row == 0 ? gridToScreenY(columnDataSource.getValue(row + lefterBound)) : currentLines[offset + 3 - 4];
                 }
             }
             chartLineLengths[lineIdx] = 4 * (righterBound - lefterBound - 1 - optimizedLines);
             lineIdx++;
-//            totalSkippedLines += optimizedLines;
         }
-//        Log.i("ZZZ", "Optimized " + totalSkippedLines + " of " + (visibleLineColumnSources.size() * (righterBound - lefterBound)) + " lines");
 
         updateVertGrid(reset);
         if (reset) {
@@ -1158,11 +1153,11 @@ public class ChartView extends View implements RangeListener {
                 hintState == HINT_APPEARING ? 0 : hintState == HINT_DISAPPEARING ? 255 : 255,
                 hintState == HINT_APPEARING ? 255 : hintState == HINT_DISAPPEARING ? 0 : 255);
         PropertyValuesHolder leftProperty = PropertyValuesHolder.ofInt("left",
-                hintBitmapDstRect.left + (int) ((hintLeft - hintBitmapDstRect.left) * 0.1f), (int) hintLeft);
+                hintBitmapDstRect.left + (int) ((hintLeft - hintBitmapDstRect.left) * 0.2f), (int) hintLeft);
         PropertyValuesHolder topProperty = PropertyValuesHolder.ofInt("top",
-                hintBitmapDstRect.top + (int) ((hintTop - hintBitmapDstRect.top) * 0.1f), (int) hintTop);
+                hintBitmapDstRect.top + (int) ((hintTop - hintBitmapDstRect.top) * 0.2f), (int) hintTop);
         hintAnimator.setValues(alphaProperty, leftProperty, topProperty);
-        hintAnimator.setDuration(150);
+        hintAnimator.setDuration(animationSpeed / 2);
         hintAnimator.setInterpolator(new DecelerateInterpolator());
         final boolean appearing = hintState == HINT_APPEARING;
         final boolean disappearing = hintState == HINT_DISAPPEARING;
@@ -1211,7 +1206,7 @@ public class ChartView extends View implements RangeListener {
     }
 
     private String formatGridValue(float value) {
-        return yMainColumnSource.formatValue((long) value, ValueFormatType.VERT_GRID); // TODO: bad conversion
+        return yMainColumnSource.formatValue((long) value, ValueFormatType.VERT_GRID); // TODO: bad conversion from float back to long, the value might be broken
     }
 
     @Override

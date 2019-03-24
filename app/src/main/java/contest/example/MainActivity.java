@@ -62,7 +62,7 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(LinearLayout.VERTICAL);
 
         chartGroups.clear();
-        for (int i = 4; i < 5; ++i) { // Data.chartDataSources.length
+        for (int i = 0; i < Data.chartDataSources.length; ++i) {
             ChartGroup chartGroup = new ChartGroup(this);
             chartGroup.setHeaderText("Chart #" + i);
             chartGroup.setChartDataSource(Data.chartDataSources[i]);
@@ -147,8 +147,9 @@ public class MainActivity extends Activity {
         }
 
         CheckBox settingCheckBox = new CheckBox(this);
-        settingCheckBox.setText(title);
+        settingCheckBox.setText(" " + title);
         settingCheckBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        settingCheckBox.setTextColor(Color.BLACK);
         settingCheckBox.setOnCheckedChangeListener(listener);
         settingCheckBox.setPadding(settingCheckBox.getPaddingLeft(), GeneralUtils.dp2px(this, 12), 0, GeneralUtils.dp2px(this, 12));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {

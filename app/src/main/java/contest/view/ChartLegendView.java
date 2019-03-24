@@ -102,7 +102,7 @@ public class ChartLegendView extends LinearLayout {
             }
 
             CheckBox checkBox = new CheckBox(getContext());
-            checkBox.setText(columnDataSource.getName());
+            checkBox.setText(" " + columnDataSource.getName());
             checkBox.setChecked(chartDataSource.isColumnVisible(c));
             checkBox.setTag(c);
             checkBox.setOnCheckedChangeListener(checkedChangeListener);
