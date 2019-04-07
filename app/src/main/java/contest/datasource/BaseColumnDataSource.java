@@ -39,4 +39,9 @@ public abstract class BaseColumnDataSource implements ColumnDataSource {
         return type;
     }
 
+    @Override
+    public ChartDataSource.YAxis getYAxis() {
+        return ChartDataSource.YAxis.NONE;
+    }
+
 }

@@ -30,6 +30,9 @@ public class SimpleChartDataSource implements ChartDataSource {
     }
 
     public ColumnDataSource getColumn(int column) {
+        if (column < 0 || column >= columns.size()) {
+            return null;
+        }
         return columns.get(column);
     }
 
@@ -45,7 +48,7 @@ public class SimpleChartDataSource implements ChartDataSource {
     }
 
     @Override
-    public int getYAxisValueSourceColumn() {
+    public int getYAxisValueSourceColumnLeft() {
         // just return first found line column
         for (int c = 0; c < columns.size(); ++c) {
             if (columns.get(c).getType().equals(ColumnType.LINE)) {
@@ -53,6 +56,27 @@ public class SimpleChartDataSource implements ChartDataSource {
             }
         }
         return -1;
+    }
+
+    @Override
+    public int getYAxisValueSourceColumnRight() {
+        // just return second found line column
+        boolean first = false;
+        for (int c = 0; c < columns.size(); ++c) {
+            if (columns.get(c).getType().equals(ColumnType.LINE)) {
+                if (!first) {
+                    first = true;
+                    continue;
+                }
+                return c;
+            }
+        }
+        return -1;
+    }
+
+    @Override
+    public float getRightYAxisMultiplier() {
+        return 0.5f; // TODO
     }
 
     public void addColumn(ColumnDataSource column) {
@@ -67,12 +91,17 @@ public class SimpleChartDataSource implements ChartDataSource {
 
     @Override
     public boolean isColumnVisible(int column) {
-        return !invisibleColumns.contains(getColumn(column));
+        return isColumnVisible(getColumn(column));
+    }
+
+    @Override
+    public boolean isColumnVisible(ColumnDataSource columnDataSource) {
+        return !invisibleColumns.contains(columnDataSource);
     }
 
     @Override
     public void setColumnVisibility(int column, boolean visible) {
-        boolean changed = false;
+        boolean changed;
         if (visible) {
             changed = invisibleColumns.remove(getColumn(column));
         } else {

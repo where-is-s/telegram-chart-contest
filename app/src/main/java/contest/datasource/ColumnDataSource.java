@@ -11,6 +11,7 @@ public interface ColumnDataSource {
     long getValue(int row);
     long[] getValues();
     ColumnType getType();
+    ChartDataSource.YAxis getYAxis();
     String formatValue(long value, ValueFormatType valueFormatType);
 
 }

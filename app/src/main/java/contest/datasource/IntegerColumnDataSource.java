@@ -7,14 +7,20 @@ import java.util.Locale;
  */
 public class IntegerColumnDataSource extends BaseColumnDataSource {
 
+    private final ChartDataSource.YAxis yAxis;
     private boolean readableFormatting = false;
 
-    public IntegerColumnDataSource(ColumnType type, String name, int color, long values[]) {
+    public IntegerColumnDataSource(ChartDataSource.YAxis yAxis, ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);
+        this.yAxis = yAxis;
     }
 
     public void setReadableFormatting(boolean readableFormatting) {
         this.readableFormatting = readableFormatting;
+    }
+
+    public ChartDataSource.YAxis getYAxis() {
+        return yAxis;
     }
 
     @Override
