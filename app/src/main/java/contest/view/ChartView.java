@@ -1339,8 +1339,8 @@ public class ChartView extends View implements RangeListener {
         chartAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animator) {
-                int oldGridAlpha = (Integer) chartAnimator.getAnimatedValue("oldGridAlpha");
-                int newGridAlpha = (Integer) chartAnimator.getAnimatedValue("newGridAlpha");
+                int oldGridAlpha = (Integer) animator.getAnimatedValue("oldGridAlpha");
+                int newGridAlpha = (Integer) animator.getAnimatedValue("newGridAlpha");
                 if (drawOldVertGrid) {
                     oldVertGridLinePaint.setAlpha(oldGridAlpha);
                     oldVertGridTextPaint.setAlpha(oldGridAlpha);
@@ -1359,10 +1359,10 @@ public class ChartView extends View implements RangeListener {
                 }
 
                 if (!topBoundFixed) {
-                    topBound = (float) chartAnimator.getAnimatedValue("topBound");
+                    topBound = (float) animator.getAnimatedValue("topBound");
                 }
                 if (!bottomBoundFixed) {
-                    bottomBound = (float) chartAnimator.getAnimatedValue("bottomBound");
+                    bottomBound = (float) animator.getAnimatedValue("bottomBound");
                 }
                 updateGridOffsets();
                 updateChart(false);
