@@ -43,11 +43,6 @@ public class ChartLegendView extends LinearLayout {
                 }
             }
         }
-
-        @Override
-        public void onDataSetChanged() {
-            update();
-        }
     };
     private List<CheckBox> checkBoxes = new ArrayList<>();
     private List<View> separators = new ArrayList<>();

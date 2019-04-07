@@ -152,11 +152,6 @@ public class ChartNavigationView extends View implements RangeListener {
             });
             activeAnimator.start();
         }
-
-        @Override
-        public void onDataSetChanged() {
-            update();
-        }
     };
 
     public ChartNavigationView(Context context) {

@@ -7,7 +7,6 @@ public interface ChartDataSource {
 
     interface Listener {
         void onSetColumnVisibility(int column, boolean visible);
-        void onDataSetChanged();
     }
 
     int getColumnsCount();

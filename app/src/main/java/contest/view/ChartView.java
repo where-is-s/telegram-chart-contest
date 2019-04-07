@@ -327,13 +327,6 @@ public class ChartView extends View implements RangeListener {
             });
             chartAnimator.start();
         }
-
-        @Override
-        public void onDataSetChanged() {
-            if (chartAnimator != null) {
-                chartAnimator.cancel();
-            }
-        }
     };
 
     private ValueAnimator chartAnimator;
