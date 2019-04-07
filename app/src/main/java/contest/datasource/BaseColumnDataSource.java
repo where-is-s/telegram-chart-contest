@@ -25,6 +25,10 @@ public abstract class BaseColumnDataSource implements ColumnDataSource {
         return values[row];
     }
 
+    public long[] getValues() {
+        return values;
+    }
+
     public String getName() {
         return name;
     }

@@ -72,13 +72,16 @@ public class SimpleChartDataSource implements ChartDataSource {
 
     @Override
     public void setColumnVisibility(int column, boolean visible) {
+        boolean changed = false;
         if (visible) {
-            invisibleColumns.remove(getColumn(column));
+            changed = invisibleColumns.remove(getColumn(column));
         } else {
-            invisibleColumns.add(getColumn(column));
+            changed = invisibleColumns.add(getColumn(column));
         }
-        for (Listener listener: listeners) {
-            listener.onSetColumnVisibility(column, visible);
+        if (changed) {
+            for (Listener listener : listeners) {
+                listener.onSetColumnVisibility(column, visible);
+            }
         }
     }
 

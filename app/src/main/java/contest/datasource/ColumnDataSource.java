@@ -9,6 +9,7 @@ public interface ColumnDataSource {
     String getName();
     int getColor();
     long getValue(int row);
+    long[] getValues();
     ColumnType getType();
     String formatValue(long value, ValueFormatType valueFormatType);
 

@@ -49,6 +49,11 @@ public class ChartNavigationView extends View implements RangeListener {
     private float leftGridOffset;
     private float rightGridOffset;
 
+    private float gridWidth;
+    private float gridHeight;
+    private float gridStepX;
+    private float gridStepY;
+
     private Bitmap chartLines;
 
     // animation helpers
@@ -93,14 +98,16 @@ public class ChartNavigationView extends View implements RangeListener {
             float newBottomBound = bottomBound;
             topBound = oldTopBound;
             bottomBound = oldBottomBound;
+            calculateGridBounds();
             PropertyValuesHolder chartLinesTop = PropertyValuesHolder.ofFloat("chartLinesTop", gridToScreenY(newTopBound), topGridOffset);
-            PropertyValuesHolder chartLinesBottom = PropertyValuesHolder.ofFloat("chartLinesBottom", gridToScreenY(newBottomBound), topGridOffset + getGridHeight());
+            PropertyValuesHolder chartLinesBottom = PropertyValuesHolder.ofFloat("chartLinesBottom", gridToScreenY(newBottomBound), topGridOffset + gridHeight);
             topBound = newTopBound;
             bottomBound = newBottomBound;
+            calculateGridBounds();
 
             PropertyValuesHolder alphaProperty = PropertyValuesHolder.ofInt("alpha", 0, 255);
             PropertyValuesHolder oldChartLinesTop = PropertyValuesHolder.ofFloat("oldChartLinesTop", topGridOffset, gridToScreenY(oldTopBound));
-            PropertyValuesHolder oldChartLinesBottom = PropertyValuesHolder.ofFloat("oldChartLinesBottom", topGridOffset + getGridHeight(), gridToScreenY(oldBottomBound));
+            PropertyValuesHolder oldChartLinesBottom = PropertyValuesHolder.ofFloat("oldChartLinesBottom", topGridOffset + gridHeight, gridToScreenY(oldBottomBound));
             activeAnimator.setValues(alphaProperty, chartLinesTop, chartLinesBottom, oldChartLinesTop, oldChartLinesBottom);
             activeAnimator.setInterpolator(new DecelerateInterpolator());
             activeAnimator.addListener(new EmptyAnimatorListener() {
@@ -133,7 +140,7 @@ public class ChartNavigationView extends View implements RangeListener {
                     oldChartLinesSrcRect.bottom = oldChartLines.getHeight();
                     oldChartLinesDstRect.left = (int) leftGridOffset;
                     oldChartLinesDstRect.top = (int) oldChartLinesTopOffset;
-                    oldChartLinesDstRect.right = (int) (leftGridOffset + getGridWidth());
+                    oldChartLinesDstRect.right = (int) (leftGridOffset + gridWidth);
                     oldChartLinesDstRect.bottom = (int) oldChartLinesBottomOffset;
                     chartLinesSrcRect.left = 0;
                     chartLinesSrcRect.top = 0;
@@ -141,7 +148,7 @@ public class ChartNavigationView extends View implements RangeListener {
                     chartLinesSrcRect.bottom = chartLines.getHeight();
                     chartLinesDstRect.left = (int) leftGridOffset;
                     chartLinesDstRect.top = (int) chartLinesTopOffset;
-                    chartLinesDstRect.right = (int) (leftGridOffset + getGridWidth());
+                    chartLinesDstRect.right = (int) (leftGridOffset + gridWidth);
                     chartLinesDstRect.bottom = (int) chartLinesBottomOffset;
 
                     int alpha = (int) animator.getAnimatedValue("alpha");
@@ -245,13 +252,14 @@ public class ChartNavigationView extends View implements RangeListener {
             if (!chartDataSource.isColumnVisible(column)) {
                 continue;
             }
+            long valuesFast[] = columnDataSource.getValues();
             for (int row = 0; row < columnDataSource.getRowsCount(); ++row) {
-                long value = columnDataSource.getValue(row);
-                if (!bottomBoundFixed) {
-                    bottomBound = first ? value : Math.min(bottomBound, value);
+                long value = valuesFast[row];
+                if (!bottomBoundFixed && (first || bottomBound > value)) {
+                    bottomBound = value;
                 }
-                if (!topBoundFixed) {
-                    topBound = first ? value : Math.max(topBound, value);
+                if (!topBoundFixed && (first || topBound < value)) {
+                    topBound = value;
                 }
                 first = false;
             }
@@ -351,28 +359,12 @@ public class ChartNavigationView extends View implements RangeListener {
         update();
     }
 
-    private float getGridWidth() {
-        return getMeasuredWidth() - leftGridOffset - rightGridOffset;
-    }
-
-    private float getGridHeight() {
-        return getMeasuredHeight() - topGridOffset - bottomGridOffset;
-    }
-
     private float gridToScreenX(float gridX) {
-        float valuesCount = chartDataSource.getRowsCount();
-        if (valuesCount <= 1) {
-            return leftGridOffset + getGridWidth() / 2;
-        }
-        return leftGridOffset + getGridWidth() * gridX / (valuesCount - 1);
+        return leftGridOffset + gridX * gridStepX;
     }
 
     private float gridToScreenY(float gridY) {
-        float valuesCount = (topBound - bottomBound);
-        if (valuesCount == 0) {
-            return topGridOffset + getGridHeight() / 2;
-        }
-        return topGridOffset + getGridHeight() * (1 - (gridY - bottomBound) / valuesCount);
+        return topGridOffset + gridHeight - (gridY - bottomBound) * gridStepY;
     }
 
     private float screenToGridX(float screenX) {
@@ -381,7 +373,7 @@ public class ChartNavigationView extends View implements RangeListener {
         if (valuesCount == 0) {
             return valuesCount / 2;
         }
-        return valuesCount * x / getGridWidth();
+        return valuesCount * x / gridWidth;
     }
 
     private float screenToGridY(float screenY) {
@@ -390,7 +382,18 @@ public class ChartNavigationView extends View implements RangeListener {
         if (valuesCount == 0) {
             return bottomBound + valuesCount / 2;
         }
-        return bottomBound + valuesCount * localY / getGridHeight();
+        return bottomBound + valuesCount * localY / gridHeight;
+    }
+
+    private void calculateGridBounds() {
+        leftGridOffset = getPaddingLeft() + chartLineWidth / 2;
+        rightGridOffset = getPaddingRight() + chartLineWidth / 2;
+        topGridOffset = getPaddingTop() + 2 * windowHorizontalFrameSize;
+        bottomGridOffset = getPaddingBottom() + 2 * windowHorizontalFrameSize;
+        gridWidth = getMeasuredWidth() - leftGridOffset - rightGridOffset;
+        gridHeight = getMeasuredHeight() - topGridOffset - bottomGridOffset;
+        gridStepX = (chartDataSource.getRowsCount()) <= 1 ? 0 : gridWidth / (chartDataSource.getRowsCount());
+        gridStepY = (topBound - bottomBound) <= 1 ? 0 : gridHeight / (topBound - bottomBound);
     }
 
     public void update() {
@@ -401,14 +404,10 @@ public class ChartNavigationView extends View implements RangeListener {
             return;
         }
 
-        leftGridOffset = getPaddingLeft() + chartLineWidth / 2;
-        rightGridOffset = getPaddingRight() + chartLineWidth / 2;
-        topGridOffset = getPaddingTop() + 2 * windowHorizontalFrameSize;
-        bottomGridOffset = getPaddingBottom() + 2 * windowHorizontalFrameSize;
-
         calculateVerticalBounds();
+        calculateGridBounds();
 
-        chartLines = Bitmap.createBitmap((int) getGridWidth(), (int) getGridHeight(), Bitmap.Config.ARGB_8888);
+        chartLines = Bitmap.createBitmap((int) gridWidth, (int) gridHeight, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(chartLines);
 
         Paint paint = new Paint();
@@ -417,20 +416,23 @@ public class ChartNavigationView extends View implements RangeListener {
         paint.setStrokeCap(Paint.Cap.BUTT);
         paint.setStyle(Paint.Style.STROKE);
 
+        float lines[] = new float[4 * (chartDataSource.getRowsCount() - 1)];
         for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
             ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
             if (columnDataSource.getType().equals(ColumnType.X) || !chartDataSource.isColumnVisible(column)) {
                 continue;
             }
+            paint.setColor(columnDataSource.getColor());
+            long valuesFast[] = columnDataSource.getValues();
             for (int row = 0; row < chartDataSource.getRowsCount() - 1; ++row) {
-                paint.setColor(columnDataSource.getColor());
-                canvas.drawLine(gridToScreenX(row) - leftGridOffset,
-                        gridToScreenY(columnDataSource.getValue(row)) - topGridOffset,
-                        gridToScreenX(row + 1) - leftGridOffset,
-                        gridToScreenY(columnDataSource.getValue(row + 1)) - topGridOffset,
-                        paint);
+                lines[4 * row] = gridToScreenX(row) - leftGridOffset;
+                lines[4 * row + 1] = gridToScreenY(valuesFast[row]) - topGridOffset;
+                lines[4 * row + 2] = gridToScreenX(row + 1) - leftGridOffset;
+                lines[4 * row + 3] = gridToScreenY(valuesFast[row + 1]) - topGridOffset;
             }
+            canvas.drawLines(lines, paint);
         }
+
         invalidate();
     }
 
@@ -462,7 +464,7 @@ public class ChartNavigationView extends View implements RangeListener {
 
         if (oldChartLines != null) {
             canvas.save();
-            canvas.clipRect(leftGridOffset, topGridOffset, leftGridOffset + getGridWidth(), topGridOffset + getGridHeight());
+            canvas.clipRect(leftGridOffset, topGridOffset, leftGridOffset + gridWidth, topGridOffset + gridHeight);
             canvas.drawBitmap(oldChartLines, oldChartLinesSrcRect, oldChartLinesDstRect, oldChartLinesPaint);
             canvas.drawBitmap(chartLines, chartLinesSrcRect, chartLinesDstRect, chartLinesPaint);
             canvas.restore();
@@ -481,7 +483,7 @@ public class ChartNavigationView extends View implements RangeListener {
         float windowLeft = gridToScreenX(windowLeftRow);
         float windowRight = gridToScreenX(windowRightRow);
         float top = topGridOffset - windowHorizontalFrameSize;
-        float bottom = topGridOffset + getGridHeight() + windowHorizontalFrameSize;
+        float bottom = topGridOffset + gridHeight + windowHorizontalFrameSize;
 
         canvas.drawRect(leftGridOffset,
                 top,
@@ -490,7 +492,7 @@ public class ChartNavigationView extends View implements RangeListener {
 
         canvas.drawRect(windowRight,
                 top,
-                leftGridOffset + getGridWidth(),
+                leftGridOffset + gridWidth,
                 bottom, backgroundPaint);
 
         canvas.drawRect(windowLeft, top, windowLeft + windowVerticalFrameSize, bottom, windowPaint);

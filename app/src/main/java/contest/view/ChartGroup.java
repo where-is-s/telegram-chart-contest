@@ -58,7 +58,7 @@ public class ChartGroup extends LinearLayout {
         addView(headerText, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         chartView = new ChartView(getContext());
-        chartView.setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
+        chartView.setChartLineWidth(GeneralUtils.dp2px(getContext(), 1.5f));
         chartView.setBottomBound(0f);
         chartView.setPadding(dp16, GeneralUtils.dp2px(getContext(), 72), dp16, dp16);
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 360));
