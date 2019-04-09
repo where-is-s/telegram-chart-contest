@@ -1,8 +1,5 @@
 package contest.view;
 
-import android.animation.Animator;
-import android.animation.PropertyValuesHolder;
-import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -13,13 +10,13 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
 import android.util.AttributeSet;
+import android.util.LongSparseArray;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SoundEffectConstants;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.LinearInterpolator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +25,8 @@ import contest.datasource.ChartDataSource;
 import contest.datasource.ColumnDataSource;
 import contest.datasource.ColumnType;
 import contest.datasource.ValueFormatType;
-import contest.utils.EmptyAnimatorListener;
 import contest.utils.GeneralUtils;
+import contest.utils.SimpleAnimator;
 
 /**
  * Created by Alex K on 19/03/2019.
@@ -42,6 +39,15 @@ public class ChartView extends View implements RangeListener {
     private static final int HINT_APPEARING = 1;
     private static final int HINT_VISIBLE = 2;
     private static final int HINT_DISAPPEARING = 3;
+
+    private static final int ANIMATE_VALUE = 0;
+    private static final int ANIMATE_OLD_ALPHA = 1;
+    private static final int ANIMATE_NEW_ALPHA = 2;
+    private static final int ANIMATE_TOP_BOUND = 3;
+    private static final int ANIMATE_BOTTOM_BOUND = 4;
+    private static final int ANIMATE_ALPHA = 5;
+    private static final int ANIMATE_LEFT = 6;
+    private static final int ANIMATE_TOP = 7;
 
     private ChartDataSource chartDataSource;
     private List<ColumnDataSource> visibleLineColumnSources = new ArrayList<>();
@@ -89,14 +95,7 @@ public class ChartView extends View implements RangeListener {
     private int chartLineLengths[] = new int[] {};
 
     private VertGridPainter vertGridPainter = new VertGridPainter();
-    private VertGridPainter oldVertGridPainter = new VertGridPainter();
-    private boolean drawOldVertGrid = false;
-
-    private int horzGridRows[] = new int[] {};
-    private String horzGridValues[] = new String[] {};
-    private int oldHorzGridRows[] = new int[] {};
-    private String oldHorzGridValues[] = new String[] {};
-    private boolean drawOldHorzGrid;
+    private HorzGridPainter horzGridPainter = new HorzGridPainter();
 
     private Bitmap hintBitmap;
     private float calculatedHintWidth;
@@ -107,14 +106,12 @@ public class ChartView extends View implements RangeListener {
 
     private float calculatedTopBound; // target bound for animations, calculated only for left Y axis
     private float calculatedBottomBound; // target bound for animations, calculated only for left Y axis
-    private float rightYAxisMultiplier = 0.5f;
+    private float rightYAxisMultiplier;
 
     private int selectedRow = -1;
 
     private Paint chartPaints[] = new Paint[] {};
     private Paint selectedLinePaint;
-    private Paint horzGridTextPaint;
-    private Paint oldHorzGridTextPaint;
     private Paint selectedCircleFillPaint;
     private Paint hintTitlePaint;
     private Paint hintBodyPaint;
@@ -122,47 +119,37 @@ public class ChartView extends View implements RangeListener {
     private Paint hintNamePaint;
     private Paint hintCopyPaint;
 
-    private class VertGridPainter {
-        float lines[] = new float[] {};
-        float values[] = new float[] {};
+    static class VertGridLine {
+        int alphaLeft = 0;
+        int destAlphaLeft = 0;
+        int alphaRight = 0;
+        int destAlphaRight = 0;
+    }
+
+    private class VertGridPainter extends SimpleAnimator.Listener {
+
+        float valueSpacing;
+        LongSparseArray<VertGridLine> lines = new LongSparseArray<>();
+
+        SimpleAnimator animator = new SimpleAnimator();
 
         Paint linePaint;
         Paint textPaint;
-        int alpha = 255;
-        boolean drawLeft;
-        boolean drawRight;
 
         VertGridPainter() {
             linePaint = new Paint();
             linePaint.setStyle(Paint.Style.STROKE);
             textPaint = new Paint();
             textPaint.setAntiAlias(true);
+            animator.setListener(this);
+            animator.setInterpolator(new DecelerateInterpolator());
         }
 
-        void setAlpha(int alpha) {
-            this.alpha = alpha;
-        }
-
-        void ensureSize(int lines) {
-            if (this.lines.length != lines * 4) {
-                this.lines = new float[lines * 4];
-            }
-            if (values.length != lines * 2) {
-                values = new float[lines * 2];
-            }
-        }
-
-        int getLinesCount() {
-            return values.length / 2;
-        }
-
-        boolean isDifferentFrom(VertGridPainter oldVertGridPainter) {
-            return getLinesCount() < 2 || oldVertGridPainter.getLinesCount() != getLinesCount()
-                    || values[2] - values[0] != oldVertGridPainter.values[2] - oldVertGridPainter.values[0];
-        }
-
-        void setColor(int gridLineColor) {
+        void setLineColor(int gridLineColor) {
             linePaint.setColor(gridLineColor);
+        }
+
+        void setTextColor(int gridLineColor) {
             textPaint.setColor(gridLineColor);
         }
 
@@ -174,48 +161,251 @@ public class ChartView extends View implements RangeListener {
             linePaint.setStrokeWidth(gridLineWidth);
         }
 
-        void copyTo(VertGridPainter painter) {
-            if (painter.lines.length != lines.length) {
-                painter.lines = new float[lines.length];
+        void animateFrame() {
+            for (int i = 0; i < lines.size(); ++i) {
+                VertGridLine line = lines.valueAt(i);
+                line.alphaLeft = (int) (line.alphaLeft + (line.destAlphaLeft - line.alphaLeft) * 0.1f);
+                line.alphaRight = (int) (line.alphaRight + (line.destAlphaRight - line.alphaRight) * 0.1f);
             }
-            if (painter.values.length != values.length) {
-                painter.values = new float[values.length];
-            }
-            System.arraycopy(lines, 0, painter.lines, 0, lines.length);
-            System.arraycopy(values, 0, painter.values, 0, values.length);
-            painter.drawLeft = drawLeft;
-            painter.drawRight = drawRight;
+            invalidate();
         }
 
-        void init() {
-            drawLeft = chartDataSource.isColumnVisible(yLeftColumnSource);
-            drawRight = chartDataSource.isColumnVisible(yRightColumnSource);
+        void animate() {
+            animator.cancel();
+            animator.setDuration(animationSpeed / 2);
+            for (int i = 0; i < lines.size(); ++i) {
+                VertGridLine line = lines.valueAt(i);
+                if (line.alphaLeft == line.destAlphaLeft && line.alphaRight == line.destAlphaRight) {
+                    continue;
+                }
+                animator.addValue(2 * i, (int) (line.alphaLeft + (line.destAlphaLeft - line.alphaLeft) * 0.1f), line.destAlphaLeft);
+                animator.addValue(2 * i + 1, (int) (line.alphaRight + (line.destAlphaRight - line.alphaRight) * 0.1f), line.destAlphaRight);
+            }
+            animator.start();
+        }
+
+        @Override
+        public void onUpdate() {
+            for (int i = 0; i < lines.size(); ++i) {
+                if (!animator.hasValue(2 * i)) {
+                    continue;
+                }
+                lines.valueAt(i).alphaLeft = animator.getIntValue(2 * i);
+                lines.valueAt(i).alphaRight = animator.getIntValue(2 * i + 1);
+            }
+            invalidate();
+        }
+
+        VertGridLine getLine(long value) {
+            VertGridLine line = lines.get(value);
+            if (line == null) {
+                line = new VertGridLine();
+                lines.put(value, line);
+            }
+            return line;
+        }
+
+        void update() {
+            int linesCount = Math.max(2, (int) Math.floor(gridHeight / vertGridLineInterval));
+            valueSpacing = (float) Math.floor((calculatedTopBound - calculatedBottomBound) / (linesCount - 1));
+            valueSpacing = gridRound(valueSpacing);
+            linesCount = (int) Math.floor((calculatedTopBound - calculatedBottomBound) / valueSpacing) + 1;
+            boolean drawLeft = yLeftColumnSource != null && chartDataSource.isColumnVisible(yLeftColumnSource);
+            boolean drawRight = yRightColumnSource != null && chartDataSource.isColumnVisible(yRightColumnSource);
+            for (int i = 0; i < lines.size(); ++i) {
+                VertGridLine line = lines.valueAt(i);
+                line.destAlphaLeft = 0;
+                line.destAlphaRight = 0;
+            }
+            for (int lineIdx = 0; lineIdx < linesCount; ++lineIdx) {
+                VertGridLine line = getLine((long) (calculatedBottomBound + lineIdx * valueSpacing));
+                line.destAlphaLeft = drawLeft ? 255 : 0;
+                line.destAlphaRight = drawRight ? 255 : 0;
+            }
+            for (int i = 0; i < lines.size(); ++i) {
+                VertGridLine line = lines.valueAt(i);
+                if (line.destAlphaRight == 0 && line.alphaRight == 0 && line.destAlphaLeft == 0 && line.alphaLeft == 0) {
+                    lines.removeAt(i);
+                }
+            }
+            animator.cancel();
         }
 
         void draw(Canvas canvas) {
-            canvas.drawLines(lines, linePaint);
             float fontHeight = getFontHeight(textPaint);
-            for (int lineIdx = 0; lineIdx < lines.length / 4; ++lineIdx) {
-                if (drawLeft) {
+            int viewWidth = getMeasuredWidth();
+
+            for (int i = 0; i < lines.size(); ++i) {
+                VertGridLine line = lines.valueAt(i);
+
+                float x1 = leftGridOffset;
+                float y = gridToScreenY(ChartDataSource.YAxis.LEFT, lines.keyAt(i));
+                float x2 = viewWidth - rightGridOffset;
+
+                linePaint.setAlpha(Math.max(line.alphaLeft, line.alphaRight));
+                if (linePaint.getAlpha() != 0) {
+                    canvas.drawLine(x1, y, x2, y, linePaint);
+                }
+                if (line.alphaLeft != 0) {
                     textPaint.setTextAlign(Paint.Align.LEFT);
                     textPaint.setColor(yLeftColumnSource.getColor());
-                    textPaint.setAlpha(alpha);
-                    canvas.drawText(formatGridValue(true, values[2 * lineIdx]),
-                            lines[4 * lineIdx] + gridLineWidth,
-                            lines[4 * lineIdx + 1] - fontHeight / 3,
+                    textPaint.setAlpha(line.alphaLeft);
+                    canvas.drawText(formatGridValue(true, lines.keyAt(i)),
+                            x1 + gridLineWidth,
+                            y - fontHeight / 3,
                             textPaint);
                 }
-                if (drawRight) {
+                if (line.alphaRight != 0) {
                     textPaint.setTextAlign(Paint.Align.RIGHT);
                     textPaint.setColor(yRightColumnSource.getColor());
-                    textPaint.setAlpha(alpha);
-                    canvas.drawText(formatGridValue(false, values[2 * lineIdx + 1]),
-                            lines[4 * lineIdx + 2] - gridLineWidth,
-                            lines[4 * lineIdx + 1] - fontHeight / 3,
+                    textPaint.setAlpha(line.alphaRight);
+                    canvas.drawText(formatGridValue(false, lines.keyAt(i) / rightYAxisMultiplier),
+                            x2 - gridLineWidth,
+                            y - fontHeight / 3,
                             textPaint);
-                } else {
-                    int a = 10;
                 }
+            }
+        }
+
+        void reset() {
+            update();
+            for (int i = 0; i < lines.size(); ++i) {
+                VertGridLine line = lines.valueAt(i);
+                line.alphaLeft = line.destAlphaLeft;
+                line.alphaRight = line.destAlphaRight;
+            }
+        }
+    }
+
+    static class HorzGridLine {
+        int alpha;
+        int destAlpha;
+        String value;
+    }
+
+    private class HorzGridPainter extends SimpleAnimator.Listener {
+        LongSparseArray<HorzGridLine> lines = new LongSparseArray<>();
+
+        SimpleAnimator animator = new SimpleAnimator();
+
+        Paint textPaint;
+
+        HorzGridPainter() {
+            textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            animator.setListener(this);
+            animator.setInterpolator(new DecelerateInterpolator());
+        }
+
+        void setTextColor(int gridLineColor) {
+            textPaint.setColor(gridLineColor);
+        }
+
+        void setTextSize(float gridTextSize) {
+            textPaint.setTextSize(gridTextSize);
+        }
+
+        void animateFrame() {
+            for (int i = 0; i < lines.size(); ++i) {
+                HorzGridLine line = lines.valueAt(i);
+                line.alpha = (int) (line.alpha + (line.destAlpha - line.alpha) * 0.1f);
+            }
+            invalidate();
+        }
+
+        void animate() {
+            animator.cancel();
+            animator.setDuration(animationSpeed / 2);
+            for (int i = 0; i < lines.size(); ++i) {
+                HorzGridLine line = lines.valueAt(i);
+                if (line.alpha == line.destAlpha) {
+                    continue;
+                }
+                animator.addValue(i, (int) (line.alpha + (line.destAlpha - line.alpha) * 0.1f), line.destAlpha);
+            }
+            animator.start();
+        }
+
+        @Override
+        public void onUpdate() {
+            for (int i = 0; i < lines.size(); ++i) {
+                if (!animator.hasValue(i)) {
+                    continue;
+                }
+                lines.valueAt(i).alpha = animator.getIntValue(i);
+            }
+            invalidate();
+        }
+
+        HorzGridLine getLine(long value) {
+            HorzGridLine line = lines.get(value);
+            if (line == null) {
+                line = new HorzGridLine();
+                lines.put(value, line);
+            }
+            return line;
+        }
+
+        void update() {
+            if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
+                return;
+            }
+
+            float markerSample1 = textPaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(0), ValueFormatType.HORZ_GRID));
+            float markerSample2 = textPaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(chartDataSource.getRowsCount() - 1), ValueFormatType.HORZ_GRID));
+            float fullXValueWidth = Math.max(markerSample1, markerSample2) + horzGridValueInterval;
+            float xValuesPerScreen = (float) Math.floor(gridWidth / fullXValueWidth);
+            float gridDistancePerMarker = (rightBound - leftBound) / xValuesPerScreen;
+            double degree2 = Math.ceil(Math.log10(gridDistancePerMarker) / Math.log10(2));
+            gridDistancePerMarker = (float) Math.pow(2, degree2);
+            int rowsPerHorzMarker = (int) gridDistancePerMarker;
+
+            if (rowsPerHorzMarker == 0) {
+                return;
+            }
+
+            float textFitLeftBound = screenToGridX(0);
+            float textFitRightBound = screenToGridX(getMeasuredWidth());
+            int leftRow = (int) (Math.max(0, Math.floor(textFitLeftBound / rowsPerHorzMarker) * rowsPerHorzMarker));
+            int rightRow = (int) (Math.min(chartDataSource.getRowsCount() - 1, Math.ceil(textFitRightBound / rowsPerHorzMarker) * rowsPerHorzMarker));
+            int horzGridValuesCount = (rightRow - leftRow) / rowsPerHorzMarker + 1;
+
+            for (int i = 0; i < lines.size(); ++i) {
+                HorzGridLine line = lines.valueAt(i);
+                line.destAlpha = 0;
+            }
+            for (int c = 0; c < horzGridValuesCount; ++c) {
+                int row = leftRow + c * rowsPerHorzMarker;
+                HorzGridLine line = getLine(row);
+                line.value = xColumnSource.formatValue(xColumnSource.getValue(row), ValueFormatType.HORZ_GRID);
+                line.destAlpha = 255;
+            }
+            for (int i = 0; i < lines.size(); ++i) {
+                HorzGridLine line = lines.valueAt(i);
+                if (line.destAlpha == 0 && line.alpha == 0) {
+                    lines.removeAt(i);
+                }
+            }
+            animator.cancel();
+        }
+
+        void draw(Canvas canvas) {
+            // draw horizontal grid
+            float horzGridTop = topGridOffset + gridHeight + getFontHeight(textPaint);
+            for (int c = 0; c < lines.size(); ++c) {
+                HorzGridLine line = lines.valueAt(c);
+                long row = lines.keyAt(c);
+                textPaint.setTextAlign(row == 0 ? Paint.Align.LEFT : Paint.Align.CENTER);
+                textPaint.setAlpha(line.alpha);
+                canvas.drawText(line.value, gridToScreenX(row), horzGridTop, textPaint);
+            }
+        }
+
+        void reset() {
+            update();
+            for (int i = 0; i < lines.size(); ++i) {
+                HorzGridLine line = lines.valueAt(i);
+                line.alpha = line.destAlpha;
             }
         }
     }
@@ -251,11 +441,10 @@ public class ChartView extends View implements RangeListener {
 
         @Override
         public void onScaleEnd(ScaleGestureDetector detector) {
-
         }
     });
     private GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.OnGestureListener() {
-        private ValueAnimator flingAnimator;
+        private SimpleAnimator flingAnimator;
 
         @Override
         public boolean onDown(MotionEvent e) {
@@ -271,7 +460,6 @@ public class ChartView extends View implements RangeListener {
 
         @Override
         public void onShowPress(MotionEvent e) {
-
         }
 
         @Override
@@ -315,7 +503,6 @@ public class ChartView extends View implements RangeListener {
 
         @Override
         public void onLongPress(MotionEvent e) {
-
         }
 
         @Override
@@ -325,15 +512,16 @@ public class ChartView extends View implements RangeListener {
             }
             float normalVelocity = (float) (Math.pow(Math.abs(velocityX), 0.8f) * Math.signum(velocityX));
             final float rows = -(rightBound - leftBound) * normalVelocity / getMeasuredWidth();
-            flingAnimator = ValueAnimator.ofFloat(0, rows);
+            flingAnimator = new SimpleAnimator();
+            flingAnimator.addValue(ANIMATE_VALUE, 0, rows);
             flingAnimator.setDuration(500);
             flingAnimator.setInterpolator(new DecelerateInterpolator());
             final float initialLeftBound = leftBound;
             final float initialRightBound = rightBound;
-            flingAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            flingAnimator.setListener(new SimpleAnimator.Listener() {
                 @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    float value = (float) animation.getAnimatedValue();
+                public void onUpdate() {
+                    float value = flingAnimator.getFloatValue(ANIMATE_VALUE);
                     float newLeftBound = Math.max(0, initialLeftBound + value);
                     float newRightBound = newLeftBound + initialRightBound - initialLeftBound;
                     if (newRightBound > chartDataSource.getRowsCount() - 1) {
@@ -362,56 +550,46 @@ public class ChartView extends View implements RangeListener {
                 animatingSource = columnDataSource; // restore animating source because it is nulled on animation cancel
                 updateColumns();
             }
-            chartAnimator = new ValueAnimator();
+            chartAnimator = new SimpleAnimator();
             chartAnimator.setDuration(animationSpeed);
-            PropertyValuesHolder alphaProperty = PropertyValuesHolder.ofInt("alpha", visible ? 0 : 255, visible ? 255 : 0);
-            PropertyValuesHolder oldGridAlphaProperty = PropertyValuesHolder.ofInt("oldGridAlpha", 255, 0);
-            PropertyValuesHolder newGridAlphaProperty = PropertyValuesHolder.ofInt("newGridAlpha", 0, 255);
+            chartAnimator.addValue(ANIMATE_ALPHA, visible ? 0 : 255, visible ? 255 : 0);
             calculateVertBounds();
-            PropertyValuesHolder topBoundProperty = PropertyValuesHolder.ofFloat("topBound", savedTopBound, calculatedTopBound);
-            PropertyValuesHolder bottomBoundProperty = PropertyValuesHolder.ofFloat("bottomBound", savedBottomBound, calculatedBottomBound);
-            chartAnimator.setValues(alphaProperty, oldGridAlphaProperty, newGridAlphaProperty, topBoundProperty, bottomBoundProperty);
+            chartAnimator.addValue(ANIMATE_TOP_BOUND, savedTopBound, calculatedTopBound);
+            chartAnimator.addValue(ANIMATE_BOTTOM_BOUND, savedBottomBound, calculatedBottomBound);
             chartAnimator.setInterpolator(new DecelerateInterpolator());
-            chartAnimator.addListener(new EmptyAnimatorListener() {
+            if (visible) {
+                updateColumns();
+            }
+            final Paint chartPaint = chartPaints[visibleLineColumnSources.indexOf(columnDataSource)];
+            vertGridPainter.update();
+            horzGridPainter.update();
+            chartAnimator.setListener(new SimpleAnimator.Listener() {
+                public void onEnd() {
+                    onCancel();
+                    vertGridPainter.animate();
+                    horzGridPainter.animate();
+                }
+
                 @Override
-                public void onAnimationEnd(Animator animation) {
+                public void onCancel() {
                     chartAnimator = null;
                     animatingSource = null;
-                    drawOldVertGrid = false;
                     updateColumns(); // invisible column will finally be removed from visibleLineColumnSources
                     updateHint();
                     updateChart(true);
                 }
 
-//                @Override
-//                public void onAnimationCancel(Animator animation) {
-//                    onAnimationEnd(animation);
-//                }
-            });
-            if (visible) {
-                updateColumns();
-            }
-            final Paint chartPaint = chartPaints[visibleLineColumnSources.indexOf(columnDataSource)];
-            vertGridPainter.copyTo(oldVertGridPainter);
-            vertGridPainter.init();
-            drawOldVertGrid = updateVertGrid(true);
-            chartAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override
-                public void onAnimationUpdate(ValueAnimator animator) {
-                    chartPaint.setAlpha((Integer) animator.getAnimatedValue("alpha"));
+                public void onUpdate() {
+                    vertGridPainter.animateFrame();
+                    horzGridPainter.animateFrame();
+                    chartPaint.setAlpha(chartAnimator.getIntValue(ANIMATE_ALPHA));
                     updateHint();
-                    if (oldVertGridPainter != null) {
-                        oldVertGridPainter.setAlpha((Integer) animator.getAnimatedValue("oldGridAlpha"));
-                        vertGridPainter.setAlpha((Integer) animator.getAnimatedValue("newGridAlpha"));
-                    } else {
-                        oldVertGridPainter.setAlpha(255);
-                        vertGridPainter.setAlpha(255);
-                    }
                     if (!topBoundFixed) {
-                        topBound = (float) animator.getAnimatedValue("topBound");
+                        topBound = chartAnimator.getFloatValue(ANIMATE_TOP_BOUND);
                     }
                     if (!bottomBoundFixed) {
-                        bottomBound = (float) animator.getAnimatedValue("bottomBound");
+                        bottomBound = chartAnimator.getFloatValue(ANIMATE_BOTTOM_BOUND);
                     }
                     updateGridOffsets();
                     updateChart(false);
@@ -421,8 +599,8 @@ public class ChartView extends View implements RangeListener {
         }
     };
 
-    private ValueAnimator chartAnimator;
-    private ValueAnimator hintAnimator;
+    private SimpleAnimator chartAnimator;
+    private SimpleAnimator hintAnimator;
     private boolean isDragging;
 
     public ChartView(Context context) {
@@ -449,12 +627,6 @@ public class ChartView extends View implements RangeListener {
     private void init() {
         selectedLinePaint = new Paint();
         selectedLinePaint.setStyle(Paint.Style.STROKE);
-        horzGridTextPaint = new Paint();
-        horzGridTextPaint.setAntiAlias(true);
-        horzGridTextPaint.setTextAlign(Paint.Align.CENTER);
-        oldHorzGridTextPaint = new Paint();
-        oldHorzGridTextPaint.setAntiAlias(true);
-        oldHorzGridTextPaint.setTextAlign(Paint.Align.CENTER);
         selectedCircleFillPaint = new Paint();
         selectedCircleFillPaint.setStyle(Paint.Style.FILL);
         hintTitlePaint = new Paint();
@@ -519,23 +691,20 @@ public class ChartView extends View implements RangeListener {
     }
 
     public void setGridLineColor(int gridLineColor) {
-        vertGridPainter.setColor(gridLineColor);
-        oldVertGridPainter.setColor(gridLineColor);
+        vertGridPainter.setLineColor(gridLineColor);
         selectedLinePaint.setColor(gridLineColor);
         invalidate();
     }
 
     public void setGridTextColor(int gridTextColor) {
-        horzGridTextPaint.setColor(gridTextColor);
-        oldHorzGridTextPaint.setColor(gridTextColor);
+        vertGridPainter.setTextColor(gridTextColor);
+        horzGridPainter.setTextColor(gridTextColor);
         updateChart(true);
     }
 
     public void setGridTextSize(float gridTextSize) {
         vertGridPainter.setTextSize(gridTextSize);
-        oldVertGridPainter.setTextSize(gridTextSize);
-        horzGridTextPaint.setTextSize(gridTextSize);
-        oldHorzGridTextPaint.setTextSize(gridTextSize);
+        horzGridPainter.setTextSize(gridTextSize);
         updateChart(true);
     }
 
@@ -552,7 +721,6 @@ public class ChartView extends View implements RangeListener {
     public void setGridLineWidth(float gridLineWidth) {
         this.gridLineWidth = gridLineWidth;
         vertGridPainter.setStrokeWidth(gridLineWidth);
-        oldVertGridPainter.setStrokeWidth(gridLineWidth);
         selectedLinePaint.setStrokeWidth(gridLineWidth);
         invalidate();
     }
@@ -715,8 +883,6 @@ public class ChartView extends View implements RangeListener {
         this.chartDataSource = chartDataSource;
         rightYAxisMultiplier = chartDataSource.getRightYAxisMultiplier();
         updateColumns();
-        vertGridPainter.init();
-        drawOldVertGrid = false;
         chartDataSource.addListener(chartDataSourceListener);
         setBounds(0, chartDataSource.getRowsCount() - 1, false);
         updateChart(true);
@@ -734,8 +900,8 @@ public class ChartView extends View implements RangeListener {
             }
         }
         xColumnSource = chartDataSource.getColumn(chartDataSource.getXAxisValueSourceColumn());
-        yLeftColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumnLeft());
-        yRightColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumnRight());
+        yLeftColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.LEFT));
+        yRightColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.RIGHT));
         if (chartPaints.length != visibleLineColumnSources.size()) {
             chartPaints = new Paint[visibleLineColumnSources.size()];
         }
@@ -760,7 +926,7 @@ public class ChartView extends View implements RangeListener {
         if (yAxis.equals(ChartDataSource.YAxis.LEFT)) {
             return topGridOffset + gridHeight - (gridY - bottomBound) * gridStepY;
         } else {
-            return topGridOffset + gridHeight - (gridY / rightYAxisMultiplier - bottomBound) * gridStepY;
+            return topGridOffset + gridHeight - (gridY * rightYAxisMultiplier - bottomBound) * gridStepY;
         }
     }
 
@@ -803,7 +969,7 @@ public class ChartView extends View implements RangeListener {
             }
             long[] valuesFast = columnDataSource.getValues();
             ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
-            float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? (1f / rightYAxisMultiplier) : 1f;
+            float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
             for (int row = lefterBound; row <= righterBound; ++row) {
                 long value = valuesFast[row];
                 value *= multiplier;
@@ -818,9 +984,8 @@ public class ChartView extends View implements RangeListener {
         if (bottomBoundFixed) {
             calculatedBottomBound = bottomBound;
         } else {
-            float vertGridLinesCount = Math.max(2, (int) Math.floor(gridHeight / vertGridLineInterval));
-            float valueSpacing = (float) Math.floor((calculatedTopBound - calculatedBottomBound) / (vertGridLinesCount - 1));
-            valueSpacing = gridRound(valueSpacing);
+            vertGridPainter.update();
+            float valueSpacing = vertGridPainter.valueSpacing;
             calculatedBottomBound = (float) (Math.floor(calculatedBottomBound / valueSpacing) * valueSpacing);
         }
         if (topBoundFixed) {
@@ -843,7 +1008,7 @@ public class ChartView extends View implements RangeListener {
         topGridOffset = getPaddingTop() + getFontHeight(vertGridPainter.textPaint);
         leftGridOffset = getPaddingLeft() + gridLineWidth / 2;
         rightGridOffset = getPaddingRight() + gridLineWidth / 2;
-        bottomGridOffset = getPaddingBottom() + getFontHeight(horzGridTextPaint);
+        bottomGridOffset = getPaddingBottom() + getFontHeight(horzGridPainter.textPaint);
         gridWidth = getMeasuredWidth() - leftGridOffset - rightGridOffset;
         gridHeight = getMeasuredHeight() - topGridOffset - bottomGridOffset;
         float valuesCount = (rightBound - leftBound);
@@ -913,7 +1078,7 @@ public class ChartView extends View implements RangeListener {
         for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
             long valuesFast[] = columnDataSource.getValues();
             ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
-            float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? (1 / rightYAxisMultiplier) : 1f;
+            float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
             float firstX = gridToScreenX(lefterBound);
             float currentLines[] = chartLines[lineIdx];
             for (int row = 0; row < righterBound - lefterBound; ++row) {
@@ -928,9 +1093,9 @@ public class ChartView extends View implements RangeListener {
             lineIdx++;
         }
 
-        updateVertGrid(reset);
         if (reset) {
-            updateHorzGrid();
+            vertGridPainter.update();
+            horzGridPainter.update();
         }
         invalidate();
     }
@@ -939,17 +1104,6 @@ public class ChartView extends View implements RangeListener {
         updateColumns();
         updateHint();
         updateChart(true);
-    }
-
-    private void saveOldHorzGrid() {
-        if (oldHorzGridRows.length != horzGridRows.length) {
-            oldHorzGridRows = new int[horzGridRows.length];
-        }
-        if (oldHorzGridValues.length != horzGridValues.length) {
-            oldHorzGridValues = new String[horzGridValues.length];
-        }
-        System.arraycopy(horzGridRows, 0, oldHorzGridRows, 0, oldHorzGridRows.length);
-        System.arraycopy(horzGridValues, 0, oldHorzGridValues, 0, oldHorzGridValues.length);
     }
 
     private float gridRound(float value) {
@@ -967,105 +1121,6 @@ public class ChartView extends View implements RangeListener {
         return value;
     }
 
-    /**
-     * @param reset
-     * @return true if grid is different from old grid and animation is required, false otherwise
-     */
-    private boolean updateVertGrid(boolean reset) {
-        float viewWidth = getMeasuredWidth();
-
-        int gridLinesCount;
-        float valueSpacing = 0;
-        if (reset) {
-            gridLinesCount = Math.max(2, (int) Math.floor(gridHeight / vertGridLineInterval));
-
-            valueSpacing = (float) Math.floor((calculatedTopBound - calculatedBottomBound) / (gridLinesCount - 1));
-            valueSpacing = gridRound(valueSpacing);
-
-            gridLinesCount = (int) Math.floor((calculatedTopBound - calculatedBottomBound) / valueSpacing) + 1;
-
-            vertGridPainter.ensureSize(gridLinesCount);
-        } else {
-            gridLinesCount = vertGridPainter.getLinesCount();
-        }
-
-        for (int gridLine = 0; gridLine < gridLinesCount; ++gridLine) {
-            if (reset) {
-                vertGridPainter.values[2 * gridLine] = calculatedBottomBound + valueSpacing * gridLine;
-                vertGridPainter.values[2 * gridLine + 1] = valueSpacing * gridLine * rightYAxisMultiplier; // + rightAxisOffset;
-            }
-            vertGridPainter.lines[4 * gridLine] = leftGridOffset;
-            vertGridPainter.lines[4 * gridLine + 1] = gridToScreenY(ChartDataSource.YAxis.LEFT, vertGridPainter.values[2 * gridLine]);
-            vertGridPainter.lines[4 * gridLine + 2] = viewWidth - rightGridOffset;
-            vertGridPainter.lines[4 * gridLine + 3] = vertGridPainter.lines[4 * gridLine + 1];
-        }
-
-        if (drawOldVertGrid) {
-            for (int gridLine = 0; gridLine < oldVertGridPainter.lines.length / 4; ++gridLine) {
-                oldVertGridPainter.lines[4 * gridLine] = leftGridOffset;
-                oldVertGridPainter.lines[4 * gridLine + 1] = gridToScreenY(ChartDataSource.YAxis.LEFT, oldVertGridPainter.values[2 * gridLine]);
-                oldVertGridPainter.lines[4 * gridLine + 2] = viewWidth - rightGridOffset;
-                oldVertGridPainter.lines[4 * gridLine + 3] = oldVertGridPainter.lines[4 * gridLine + 1];
-            }
-        }
-
-        invalidate();
-
-        return vertGridPainter.isDifferentFrom(oldVertGridPainter);
-    }
-
-    /**
-     * @return true if grid is different from old grid and animation is required, false otherwise
-     */
-    private boolean updateHorzGrid() {
-        if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
-            return false;
-        }
-
-        float markerSample1 = horzGridTextPaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(0), ValueFormatType.HORZ_GRID));
-        float markerSample2 = horzGridTextPaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(chartDataSource.getRowsCount() - 1), ValueFormatType.HORZ_GRID));
-        float fullXValueWidth = Math.max(markerSample1, markerSample2) + horzGridValueInterval;
-        float xValuesPerScreen = (float) Math.floor(gridWidth / fullXValueWidth);
-        float gridDistancePerMarker = (rightBound - leftBound) / xValuesPerScreen;
-        double degree2 = Math.ceil(Math.log10(gridDistancePerMarker) / Math.log10(2));
-        gridDistancePerMarker = (float) Math.pow(2, degree2);
-        int rowsPerHorzMarker = (int) gridDistancePerMarker;
-
-        if (rowsPerHorzMarker == 0) {
-            return false;
-        }
-
-        float textFitLeftBound = screenToGridX(0);
-        float textFitRightBound = screenToGridX(getMeasuredWidth());
-        int leftRow = (int) (Math.max(0, Math.floor(textFitLeftBound / rowsPerHorzMarker) * rowsPerHorzMarker));
-        int rightRow = (int) (Math.min(chartDataSource.getRowsCount() - 1, Math.ceil(textFitRightBound / rowsPerHorzMarker) * rowsPerHorzMarker));
-        int horzGridValuesCount = (rightRow - leftRow) / rowsPerHorzMarker + 1;
-
-        if (horzGridRows.length != horzGridValuesCount) {
-            horzGridRows = new int[horzGridValuesCount];
-            horzGridValues = new String[horzGridValuesCount];
-        }
-        for (int c = 0; c < horzGridValuesCount; ++c) {
-            int row = leftRow + c * rowsPerHorzMarker;
-            if (horzGridRows[c] != row || horzGridValues[c] == null) {
-                horzGridRows[c] = row;
-                horzGridValues[c] = xColumnSource.formatValue(xColumnSource.getValue(row), ValueFormatType.HORZ_GRID);
-            }
-        }
-
-        invalidate();
-
-        if (horzGridRows.length < 2 || oldHorzGridRows.length < 2) {
-            return true;
-        }
-        int oldDelta = oldHorzGridRows[1] - oldHorzGridRows[0];
-        int newDelta = horzGridRows[1] - horzGridRows[0];
-        if (newDelta > 2 * oldDelta) {
-            return false;
-        }
-        return oldDelta != newDelta;
-    }
-
     public void setSelectedRow(int selectedRow) {
         this.selectedRow = selectedRow;
         updateHint();
@@ -1079,6 +1134,8 @@ public class ChartView extends View implements RangeListener {
 
         updateGridOffsets();
         updateChart(true);
+        vertGridPainter.reset();
+        horzGridPainter.reset();
     }
 
     private void updateHint() {
@@ -1214,23 +1271,31 @@ public class ChartView extends View implements RangeListener {
         if (hintAnimator != null) {
             hintAnimator.cancel();
         }
-        hintAnimator = new ValueAnimator();
-        PropertyValuesHolder alphaProperty = PropertyValuesHolder.ofInt("alpha",
+        hintAnimator = new SimpleAnimator();
+        hintAnimator.addValue(ANIMATE_ALPHA,
                 hintState == HINT_APPEARING ? 0 : hintState == HINT_DISAPPEARING ? 255 : 255,
                 hintState == HINT_APPEARING ? 255 : hintState == HINT_DISAPPEARING ? 0 : 255);
-        PropertyValuesHolder leftProperty = PropertyValuesHolder.ofInt("left",
+        hintAnimator.addValue(ANIMATE_LEFT,
                 hintBitmapDstRect.left + (int) ((hintLeft - hintBitmapDstRect.left) * 0.2f), (int) hintLeft);
-        PropertyValuesHolder topProperty = PropertyValuesHolder.ofInt("top",
+        hintAnimator.addValue(ANIMATE_TOP,
                 hintBitmapDstRect.top + (int) ((hintTop - hintBitmapDstRect.top) * 0.2f), (int) hintTop);
-        hintAnimator.setValues(alphaProperty, leftProperty, topProperty);
         hintAnimator.setDuration(animationSpeed / 2);
         hintAnimator.setInterpolator(new DecelerateInterpolator());
         final boolean appearing = hintState == HINT_APPEARING;
         final boolean disappearing = hintState == HINT_DISAPPEARING;
         final boolean animatingAlpha = appearing || disappearing;
-        hintAnimator.addListener(new EmptyAnimatorListener() {
+
+        if (hintState == HINT_APPEARING) {
+            hintBitmapDstRect.left = (int) hintLeft;
+            hintBitmapDstRect.top = (int) hintTop;
+            hintBitmapDstRect.right = (int) hintRight;
+            hintBitmapDstRect.bottom = (int) hintBottom;
+        }
+        final float hintWidth = hintRight - hintLeft;
+        final float hintHeight = hintBottom - hintTop;
+        hintAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
-            public void onAnimationEnd(Animator animation) {
+            public void onEnd() {
                 if (disappearing) {
                     hintState = HINT_INVISIBLE;
                     setSelectedRow(-1);
@@ -1240,28 +1305,19 @@ public class ChartView extends View implements RangeListener {
                 hintAnimator = null;
             }
 
-//            @Override
-//            public void onAnimationCancel(Animator animation) {
-//                hintAnimator = null;
-//            }
-        });
-        if (hintState == HINT_APPEARING) {
-            hintBitmapDstRect.left = (int) hintLeft;
-            hintBitmapDstRect.top = (int) hintTop;
-            hintBitmapDstRect.right = (int) hintRight;
-            hintBitmapDstRect.bottom = (int) hintBottom;
-        }
-        final float hintWidth = hintRight - hintLeft;
-        final float hintHeight = hintBottom - hintTop;
-        hintAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
+            public void onCancel() {
+                onEnd();
+            }
+
+            @Override
+            public void onUpdate() {
                 if (animatingAlpha) {
-                    hintCopyPaint.setAlpha((int) animation.getAnimatedValue("alpha"));
+                    hintCopyPaint.setAlpha(hintAnimator.getIntValue(ANIMATE_ALPHA));
                 } else {
                     hintCopyPaint.setAlpha(255);
-                    hintBitmapDstRect.left = (int) animation.getAnimatedValue("left");
-                    hintBitmapDstRect.top = (int) animation.getAnimatedValue("top");
+                    hintBitmapDstRect.left = hintAnimator.getIntValue(ANIMATE_LEFT);
+                    hintBitmapDstRect.top = hintAnimator.getIntValue(ANIMATE_TOP);
                     hintBitmapDstRect.right = (int) (hintBitmapDstRect.left + hintWidth);
                     hintBitmapDstRect.bottom = (int) (hintBitmapDstRect.top + hintHeight);
                 }
@@ -1302,9 +1358,6 @@ public class ChartView extends View implements RangeListener {
         }
 
         // draw vertical grid
-        if (drawOldVertGrid) {
-            oldVertGridPainter.draw(canvas);
-        }
         vertGridPainter.draw(canvas);
 
         // draw lines
@@ -1315,17 +1368,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         // draw horizontal grid
-        float horzGridTop = topGridOffset + gridHeight + getFontHeight(horzGridTextPaint);
-        if (drawOldHorzGrid) {
-            for (int c = 0; c < oldHorzGridRows.length; ++c) {
-                oldHorzGridTextPaint.setTextAlign(oldHorzGridRows[c] == 0 ? Paint.Align.LEFT : Paint.Align.CENTER);
-                canvas.drawText(oldHorzGridValues[c], gridToScreenX(oldHorzGridRows[c]), horzGridTop, oldHorzGridTextPaint);
-            }
-        }
-        for (int c = 0; c < horzGridRows.length; ++c) {
-            horzGridTextPaint.setTextAlign(horzGridRows[c] == 0 ? Paint.Align.LEFT : Paint.Align.CENTER);
-            canvas.drawText(horzGridValues[c], gridToScreenX(horzGridRows[c]), horzGridTop, horzGridTextPaint);
-        }
+        horzGridPainter.draw(canvas);
 
         // draw hint
         if (selectedRow > -1) {
@@ -1360,80 +1403,42 @@ public class ChartView extends View implements RangeListener {
             return;
         }
         calculateVertBounds();
-        boolean reuseOldVertGrid = false;
-        boolean reuseOldHorzGrid = false;
         if (chartAnimator != null) {
-            boolean animationIsInEarlyStage = chartAnimator.getCurrentPlayTime() < animationSpeed / 2;
-            reuseOldVertGrid = drawOldVertGrid && animationIsInEarlyStage;
-            reuseOldHorzGrid = drawOldHorzGrid && animationIsInEarlyStage;
             chartAnimator.cancel();
         }
-        if (!reuseOldVertGrid) {
-            vertGridPainter.copyTo(oldVertGridPainter);
-            vertGridPainter.init();
-        }
-        if (!reuseOldHorzGrid) {
-            saveOldHorzGrid();
-        }
-        // draw old grids only if new grids are really different
-        drawOldVertGrid = updateVertGrid(true);
-        drawOldHorzGrid = updateHorzGrid();
+        vertGridPainter.update();
+        horzGridPainter.update();
 
-        chartAnimator = new ValueAnimator();
+        chartAnimator = new SimpleAnimator();
         chartAnimator.setDuration(animationSpeed);
-        PropertyValuesHolder oldGridAlphaProperty = PropertyValuesHolder.ofInt("oldGridAlpha", 255, 0);
-        PropertyValuesHolder newGridAlphaProperty = PropertyValuesHolder.ofInt("newGridAlpha", 0, 255);
-        PropertyValuesHolder topBoundProperty = PropertyValuesHolder.ofFloat("topBound",
-                topBound + (calculatedTopBound - topBound) * 0.1f, calculatedTopBound);
-        PropertyValuesHolder bottomBoundProperty = PropertyValuesHolder.ofFloat("bottomBound",
-                bottomBound + (calculatedBottomBound - bottomBound) * 0.1f, calculatedBottomBound);
-        chartAnimator.setValues(oldGridAlphaProperty, newGridAlphaProperty, topBoundProperty, bottomBoundProperty);
-        chartAnimator.setInterpolator(new LinearInterpolator());
-        chartAnimator.addListener(new EmptyAnimatorListener() {
-            boolean canceled = false;
+        chartAnimator.addValue(ANIMATE_OLD_ALPHA, 255, 0);
+        chartAnimator.addValue(ANIMATE_NEW_ALPHA, 0, 255);
+        chartAnimator.addValue(ANIMATE_TOP_BOUND,  topBound + (calculatedTopBound - topBound) * 0.1f, calculatedTopBound);
+        chartAnimator.addValue(ANIMATE_BOTTOM_BOUND, bottomBound + (calculatedBottomBound - bottomBound) * 0.1f, calculatedBottomBound);
+        chartAnimator.setListener(new SimpleAnimator.Listener() {
+            @Override
+            public void onEnd() {
+                onCancel();
+                updateChart(false);
+                vertGridPainter.animate();
+                horzGridPainter.animate();
+            }
 
             @Override
-            public void onAnimationEnd(Animator animation) {
+            public void onCancel() {
                 chartAnimator = null;
-                drawOldVertGrid = false;
-                drawOldHorzGrid = false;
-                if (!canceled) {
-                    updateChart(false);
-                }
             }
 
             @Override
-            public void onAnimationCancel(Animator animation) {
-                canceled = true;
-//                onAnimationEnd(animation);
-            }
-        });
-        chartAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animator) {
-                int oldGridAlpha = (Integer) animator.getAnimatedValue("oldGridAlpha");
-                int newGridAlpha = (Integer) animator.getAnimatedValue("newGridAlpha");
-                if (drawOldVertGrid) {
-                    oldVertGridPainter.setAlpha(oldGridAlpha);
-                    vertGridPainter.setAlpha(newGridAlpha);
-                } else {
-                    oldVertGridPainter.setAlpha(255);
-                    vertGridPainter.setAlpha(255);
-                }
-                if (drawOldHorzGrid) {
-                    oldHorzGridTextPaint.setAlpha(oldGridAlpha);
-                    horzGridTextPaint.setAlpha(newGridAlpha);
-                } else {
-                    oldHorzGridTextPaint.setAlpha(255);
-                    horzGridTextPaint.setAlpha(255);
-                }
-
+            public void onUpdate() {
                 if (!topBoundFixed) {
-                    topBound = (float) animator.getAnimatedValue("topBound");
+                    topBound = chartAnimator.getFloatValue(ANIMATE_TOP_BOUND);
                 }
                 if (!bottomBoundFixed) {
-                    bottomBound = (float) animator.getAnimatedValue("bottomBound");
+                    bottomBound = chartAnimator.getFloatValue(ANIMATE_BOTTOM_BOUND);
                 }
+                vertGridPainter.animateFrame();
+                horzGridPainter.animateFrame();
                 updateGridOffsets();
                 updateChart(false);
             }

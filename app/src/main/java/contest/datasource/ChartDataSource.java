@@ -18,8 +18,7 @@ public interface ChartDataSource {
     ColumnDataSource getColumn(int column);
 
     int getXAxisValueSourceColumn();
-    int getYAxisValueSourceColumnLeft();
-    int getYAxisValueSourceColumnRight();
+    int getYAxisValueSourceColumn(YAxis yAxis);
 
     float getRightYAxisMultiplier();
 

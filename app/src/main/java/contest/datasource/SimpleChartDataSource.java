@@ -48,26 +48,11 @@ public class SimpleChartDataSource implements ChartDataSource {
     }
 
     @Override
-    public int getYAxisValueSourceColumnLeft() {
+    public int getYAxisValueSourceColumn(YAxis yAxis) {
         // just return first found line column
         for (int c = 0; c < columns.size(); ++c) {
-            if (columns.get(c).getType().equals(ColumnType.LINE)) {
-                return c;
-            }
-        }
-        return -1;
-    }
-
-    @Override
-    public int getYAxisValueSourceColumnRight() {
-        // just return second found line column
-        boolean first = false;
-        for (int c = 0; c < columns.size(); ++c) {
-            if (columns.get(c).getType().equals(ColumnType.LINE)) {
-                if (!first) {
-                    first = true;
-                    continue;
-                }
+            ColumnDataSource columnDataSource = columns.get(c);
+            if (columnDataSource.getType().equals(ColumnType.LINE) && columns.get(c).getYAxis().equals(yAxis)) {
                 return c;
             }
         }
@@ -76,7 +61,7 @@ public class SimpleChartDataSource implements ChartDataSource {
 
     @Override
     public float getRightYAxisMultiplier() {
-        return 0.5f; // TODO
+        return 2f; // TODO
     }
 
     public void addColumn(ColumnDataSource column) {
