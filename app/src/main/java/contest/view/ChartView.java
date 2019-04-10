@@ -91,11 +91,9 @@ public class ChartView extends View implements RangeListener {
     private float gridStepX;
     private float gridStepY;
 
-    private float chartLines[][] = new float[][] {};
-    private int chartLineLengths[] = new int[] {};
-
     private VertGridPainter vertGridPainter = new VertGridPainter();
     private HorzGridPainter horzGridPainter = new HorzGridPainter();
+    private ChartPainter chartPainter = new BarStackPainter();
 
     private Bitmap hintBitmap;
     private float calculatedHintWidth;
@@ -110,13 +108,242 @@ public class ChartView extends View implements RangeListener {
 
     private int selectedRow = -1;
 
-    private Paint chartPaints[] = new Paint[] {};
-    private Paint selectedLinePaint;
-    private Paint selectedCircleFillPaint;
     private Paint hintTitlePaint;
     private Paint hintBodyPaint;
     private Paint hintValuePaint;
     private Paint hintCopyPaint;
+
+    private int selectedLineColor;
+    private int selectedCircleFillColor;
+    private float selectedLineWidth;
+
+    private interface ChartPainter {
+        Paint getPaint(int idx);
+        void update();
+        void draw(Canvas canvas);
+        boolean isStacking();
+    }
+
+    private class LineChartPainter implements ChartPainter {
+        Paint chartPaints[] = new Paint[] {};
+        float chartLines[][] = new float[][] {};
+        int chartLinesLength;
+
+        Paint selectedLinePaint;
+        Paint selectedCircleFillPaint;
+
+        LineChartPainter() {
+            selectedLinePaint = new Paint();
+            selectedLinePaint.setStyle(Paint.Style.STROKE);
+            selectedCircleFillPaint = new Paint();
+            selectedCircleFillPaint.setStyle(Paint.Style.FILL);
+        }
+
+        @Override
+        public Paint getPaint(int idx) {
+            return chartPaints[idx];
+        }
+
+        @Override
+        public void update() {
+            int lefterBound = getLefterBound();
+            int righterBound = getRighterBound();
+            chartLinesLength = 4 * (righterBound - lefterBound);
+            if (chartLinesLength < 0) {
+                return;
+            }
+            if (chartLines.length < visibleLineColumnSources.size()) {
+                chartLines = new float[visibleLineColumnSources.size()][];
+                chartPaints = new Paint[visibleLineColumnSources.size()];
+            }
+
+            for (int i = 0; i < chartLines.length; ++i) {
+                if (chartLines[i] == null || chartLines[i].length < chartLinesLength) {
+                    chartLines[i] = new float[chartLinesLength];
+                }
+            }
+
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                Paint paint = chartPaints[c];
+                if (paint == null) {
+                    paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    paint.setStrokeCap(Paint.Cap.BUTT);
+                    paint.setStyle(Paint.Style.STROKE);
+                }
+                paint.setStrokeWidth(chartLineWidth);
+                paint.setColor(visibleLineColumnSources.get(c).getColor());
+                chartPaints[c] = paint;
+            }
+
+            int lineIdx = 0;
+            float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
+            for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
+                long valuesFast[] = columnDataSource.getValues();
+                ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
+                float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
+                float firstX = gridToScreenX(lefterBound);
+                float currentLines[] = chartLines[lineIdx];
+                for (int row = 0; row < righterBound - lefterBound; ++row) {
+                    int offset = 4 * row;
+
+                    currentLines[offset] = row == 0 ? firstX : currentLines[offset + 2 - 4];
+                    currentLines[offset + 1] = row == 0 ? (gridToScreenYFast - gridStepY * (multiplier * valuesFast[row + lefterBound])) : currentLines[offset + 3 - 4];
+                    currentLines[offset + 2] = firstX + (row + 1) * gridStepX;
+                    currentLines[offset + 3] = gridToScreenYFast - gridStepY * (multiplier * valuesFast[row + lefterBound + 1]);
+                }
+                lineIdx++;
+            }
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            selectedLinePaint.setColor(selectedLineColor);
+            selectedCircleFillPaint.setColor(selectedCircleFillColor);
+            selectedLinePaint.setStrokeWidth(selectedLineWidth);
+
+            // draw vertical line for selected row
+            if (selectedRow > -1) {
+                float x = gridToScreenX(selectedRow);
+                float lineTop = topGridOffset;
+                if (hintState == HINT_VISIBLE) {
+                    lineTop = Math.min(lineTop, hintBitmapDstRect.bottom - 2 * hintShadowRadius);
+                }
+                canvas.drawLine(x, lineTop, x, topGridOffset + gridHeight, selectedLinePaint);
+            }
+
+            // draw lines
+            for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
+                canvas.drawLines(chartLines[lineIdx], 0, chartLinesLength, chartPaints[lineIdx]);
+            }
+
+            // draw selected circles
+            if (selectedRow > -1) {
+                float x = gridToScreenX(selectedRow);
+                if (x >= 0 && x <= getMeasuredWidth()) {
+                    int lineIdx = 0;
+                    for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
+                        float y = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedRow));
+                        selectedCircleFillPaint.setAlpha(chartPaints[lineIdx].getAlpha());
+                        canvas.drawCircle(x, y, selectedCircleRadius, selectedCircleFillPaint);
+                        canvas.drawCircle(x, y, selectedCircleRadius, chartPaints[lineIdx++]);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public boolean isStacking() {
+            return false;
+        }
+    }
+
+    private class BarStackPainter implements ChartPainter {
+        Paint chartPaints[] = new Paint[] {};
+        float chartLines[][] = new float[][] {};
+        int chartLinesLength;
+
+        public BarStackPainter() {
+        }
+
+        @Override
+        public Paint getPaint(int idx) {
+            return chartPaints[idx];
+        }
+
+        @Override
+        public void update() {
+            int lefterBound = getLefterBound();
+            int righterBound = getRighterBound();
+            chartLinesLength = 4 * (righterBound - lefterBound + 1);
+            if (chartLinesLength < 0) {
+                return;
+            }
+            if (chartLines.length < visibleLineColumnSources.size()) {
+                chartLines = new float[visibleLineColumnSources.size()][];
+                chartPaints = new Paint[visibleLineColumnSources.size()];
+            }
+            for (int i = 0; i < chartLines.length; ++i) {
+                if (chartLines[i] == null || chartLines[i].length < chartLinesLength) {
+                    chartLines[i] = new float[chartLinesLength];
+                }
+            }
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                Paint paint = chartPaints[c];
+                if (paint == null) {
+                    paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    paint.setStrokeCap(Paint.Cap.BUTT);
+                    paint.setStyle(Paint.Style.STROKE);
+                }
+                paint.setColor(visibleLineColumnSources.get(c).getColor());
+                chartPaints[c] = paint;
+            }
+            int chartIdx = 0;
+            float gridBottom = topGridOffset + gridHeight;
+            float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
+            for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
+                long valuesFast[] = columnDataSource.getValues();
+                ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
+                float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
+                float firstX = gridToScreenX(lefterBound) + gridStepX / 2 - gridStepX * lefterBound / columnDataSource.getRowsCount();
+                float fixedGridStepX = gridStepX - gridStepX * 1 / columnDataSource.getRowsCount();
+                float currentLines[] = chartLines[chartIdx];
+                float prevLines[] = chartIdx > 0 ? chartLines[chartIdx - 1] : null;
+                chartPaints[chartIdx].setStrokeWidth(gridStepX + 0.5f);
+                if (prevLines == null) {
+                    for (int row = 0; row <= righterBound - lefterBound; ++row) {
+                        int offset = 4 * row;
+                        currentLines[offset] = row == 0 ? firstX : (currentLines[offset + 2 - 4] + fixedGridStepX);
+                        currentLines[offset + 1] = gridToScreenYFast - gridStepY * (multiplier * valuesFast[row + lefterBound]);
+                        currentLines[offset + 2] = currentLines[offset];
+                        currentLines[offset + 3] = gridBottom;
+                    }
+                } else {
+                    for (int row = 0; row <= righterBound - lefterBound; ++row) {
+                        int offset = 4 * row;
+                        currentLines[offset] = prevLines[offset];
+                        currentLines[offset + 1] = prevLines[offset + 1] - gridStepY * (multiplier * valuesFast[row + lefterBound]);
+                        currentLines[offset + 2] = prevLines[offset];
+                        currentLines[offset + 3] = prevLines[offset + 1];
+                    }
+                }
+                chartIdx++;
+            }
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            // draw lines
+            for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
+                int color = 0;
+                if (selectedRow > -1) {
+                    color = chartPaints[lineIdx].getColor();
+                    int backgroundColor = Color.WHITE; // TODO!
+                    chartPaints[lineIdx].setColor(Color.rgb(
+                            (Color.red(color) + Color.red(backgroundColor)) / 2,
+                            (Color.green(color) + Color.green(backgroundColor)) / 2,
+                            (Color.blue(color) + Color.blue(backgroundColor)) / 2
+                    ));
+                }
+                canvas.drawLines(chartLines[lineIdx], 0, chartLinesLength, chartPaints[lineIdx]);
+                if (selectedRow > -1) {
+                    chartPaints[lineIdx].setColor(color);
+                }
+            }
+            if (selectedRow > -1) {
+                int selectedStartIdx = 4 * (selectedRow - getLefterBound());
+                if (selectedStartIdx >= 0 && selectedStartIdx < chartLinesLength) {
+                    for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
+                        canvas.drawLines(chartLines[lineIdx], selectedStartIdx, 4, chartPaints[lineIdx]);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public boolean isStacking() {
+            return true;
+        }
+    }
 
     static class VertGridLine {
         int alphaLeft = 0;
@@ -134,6 +361,7 @@ public class ChartView extends View implements RangeListener {
 
         Paint linePaint;
         Paint textPaint;
+        int textColor;
 
         VertGridPainter() {
             linePaint = new Paint();
@@ -148,8 +376,8 @@ public class ChartView extends View implements RangeListener {
             linePaint.setColor(gridLineColor);
         }
 
-        void setTextColor(int gridLineColor) {
-            textPaint.setColor(gridLineColor);
+        void setTextColor(int textColor) {
+            this.textColor = textColor;
         }
 
         void setTextSize(float gridTextSize) {
@@ -241,13 +469,15 @@ public class ChartView extends View implements RangeListener {
                 float y = gridToScreenY(ChartDataSource.YAxis.LEFT, lines.keyAt(i));
                 float x2 = viewWidth - rightGridOffset;
 
-                linePaint.setAlpha(Math.max(line.alphaLeft, line.alphaRight));
+                int alpha = linePaint.getAlpha();
+                linePaint.setAlpha(alpha * Math.max(line.alphaLeft, line.alphaRight) / 255);
                 if (linePaint.getAlpha() != 0) {
                     canvas.drawLine(x1, y, x2, y, linePaint);
                 }
+                linePaint.setAlpha(alpha);
                 if (line.alphaLeft != 0) {
                     textPaint.setTextAlign(Paint.Align.LEFT);
-                    textPaint.setColor(yLeftColumnSource.getColor());
+                    textPaint.setColor(yRightColumnSource == null ? textColor : yLeftColumnSource.getColor());
                     textPaint.setAlpha(line.alphaLeft);
                     canvas.drawText(formatGridValue(true, lines.keyAt(i)),
                             x1 + gridLineWidth,
@@ -559,7 +789,7 @@ public class ChartView extends View implements RangeListener {
             if (visible) {
                 updateColumns();
             }
-            final Paint chartPaint = chartPaints[visibleLineColumnSources.indexOf(columnDataSource)];
+            final Paint chartPaint = chartPainter.getPaint(visibleLineColumnSources.indexOf(columnDataSource));
             vertGridPainter.update();
             horzGridPainter.update();
             chartAnimator.setListener(new SimpleAnimator.Listener() {
@@ -624,10 +854,6 @@ public class ChartView extends View implements RangeListener {
     }
 
     private void init() {
-        selectedLinePaint = new Paint();
-        selectedLinePaint.setStyle(Paint.Style.STROKE);
-        selectedCircleFillPaint = new Paint();
-        selectedCircleFillPaint.setStyle(Paint.Style.FILL);
         hintTitlePaint = new Paint();
         hintTitlePaint.setAntiAlias(true);
         hintTitlePaint.setTypeface(GeneralUtils.getBoldTypeface());
@@ -642,8 +868,8 @@ public class ChartView extends View implements RangeListener {
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setVertGridLineInterval(GeneralUtils.dp2px(getContext(), 40));
         setHorzGridValueInterval(GeneralUtils.dp2px(getContext(), 20));
-        setGridLineColor(0xfff3f3f3);
-        setGridTextColor(0xffa0abb2);
+        setGridLineColor(0x12182d3b);
+        setGridTextColor(0x99a3b1c2);
         setGridTextSize(GeneralUtils.sp2px(getContext(), 12));
         setSelectedCircleRadius(GeneralUtils.dp2px(getContext(), 4));
         setSelectedCircleFillColor(Color.WHITE);
@@ -686,7 +912,7 @@ public class ChartView extends View implements RangeListener {
 
     public void setGridLineColor(int gridLineColor) {
         vertGridPainter.setLineColor(gridLineColor);
-        selectedLinePaint.setColor(gridLineColor);
+        selectedLineColor = gridLineColor;
         invalidate();
     }
 
@@ -708,14 +934,14 @@ public class ChartView extends View implements RangeListener {
     }
 
     public void setSelectedCircleFillColor(int color) {
-        selectedCircleFillPaint.setColor(color);
+        selectedCircleFillColor = color;
         invalidate();
     }
 
     public void setGridLineWidth(float gridLineWidth) {
         this.gridLineWidth = gridLineWidth;
         vertGridPainter.setStrokeWidth(gridLineWidth);
-        selectedLinePaint.setStrokeWidth(gridLineWidth);
+        selectedLineWidth = gridLineWidth;
         invalidate();
     }
 
@@ -891,18 +1117,6 @@ public class ChartView extends View implements RangeListener {
         xColumnSource = chartDataSource.getColumn(chartDataSource.getXAxisValueSourceColumn());
         yLeftColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.LEFT));
         yRightColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.RIGHT));
-        if (chartPaints.length != visibleLineColumnSources.size()) {
-            chartPaints = new Paint[visibleLineColumnSources.size()];
-        }
-        for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-            Paint paint = new Paint();
-            paint.setAntiAlias(true);
-            paint.setStrokeWidth(chartLineWidth);
-            paint.setColor(visibleLineColumnSources.get(c).getColor());
-            paint.setStrokeCap(Paint.Cap.BUTT);
-            paint.setStyle(Paint.Style.STROKE);
-            chartPaints[c] = paint;
-        }
         updateHint();
         invalidate();
     }
@@ -948,20 +1162,36 @@ public class ChartView extends View implements RangeListener {
     private void calculateVertBounds() {
         int lefterBound = getLefterBound();
         int righterBound = getRighterBound();
-        calculatedBottomBound = Float.MAX_VALUE;
-        calculatedTopBound = Float.MIN_VALUE;
+        boolean stacking = chartPainter.isStacking();
+        calculatedBottomBound = stacking ? 0 : Float.MAX_VALUE;
+        calculatedTopBound = stacking ? 0 : Float.MIN_VALUE;
+        List<long[]> fastValuesList = new ArrayList<>();
+        ArrayList<Float> multiplierList = new ArrayList<>();
         for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
             ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
             if (columnDataSource.getType().equals(ColumnType.X)
                     || !chartDataSource.isColumnVisible(column)) {
                 continue;
             }
-            long[] valuesFast = columnDataSource.getValues();
+            fastValuesList.add(columnDataSource.getValues());
             ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
             float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
-            for (int row = lefterBound; row <= righterBound; ++row) {
-                long value = valuesFast[row];
-                value *= multiplier;
+            multiplierList.add(multiplier);
+        }
+        long[][] fastValues = new long[fastValuesList.size()][];
+        for (int i = 0; i < fastValuesList.size(); ++i) {
+            fastValues[i] = fastValuesList.get(i);
+        }
+        Float multipliers[] = multiplierList.toArray(new Float[multiplierList.size()]);
+        for (int row = lefterBound; row <= righterBound; ++row) {
+            float aggValue = 0;
+            for (int c = 0; c < fastValues.length; ++c) {
+                long value = fastValues[c][row];
+                value *= multipliers[c];
+                if (stacking) {
+                    aggValue += value;
+                    continue;
+                }
                 if (calculatedBottomBound > value) {
                     calculatedBottomBound = value;
                 }
@@ -969,6 +1199,12 @@ public class ChartView extends View implements RangeListener {
                     calculatedTopBound = value;
                 }
             }
+            if (stacking && calculatedTopBound < aggValue) {
+                calculatedTopBound = aggValue;
+            }
+        }
+        if (stacking) {
+            calculatedBottomBound = 0;
         }
         if (bottomBoundFixed) {
             calculatedBottomBound = bottomBound;
@@ -1032,25 +1268,6 @@ public class ChartView extends View implements RangeListener {
             return;
         }
 
-        int lefterBound = getLefterBound();
-        int righterBound = getRighterBound();
-
-        int chartLineLengthInArray = 4 * (righterBound - lefterBound);
-        if (chartLineLengthInArray < 0) {
-            return;
-        }
-        if (chartLines.length < visibleLineColumnSources.size()) {
-            chartLines = new float[visibleLineColumnSources.size()][];
-            chartLineLengths = new int[visibleLineColumnSources.size()];
-        }
-        for (int i = 0; i < chartLines.length; ++i) {
-            if (chartLines[i] == null || chartLines[i].length < chartLineLengthInArray) {
-                chartLines[i] = new float[chartLineLengthInArray];
-            }
-        }
-        if (chartPaints.length != visibleLineColumnSources.size()) {
-            chartPaints = new Paint[visibleLineColumnSources.size()];
-        }
         if (reset) {
             calculateVertBounds();
             if (!topBoundFixed) {
@@ -1062,25 +1279,7 @@ public class ChartView extends View implements RangeListener {
             updateGridOffsets();
         }
 
-        int lineIdx = 0;
-        float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
-        for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
-            long valuesFast[] = columnDataSource.getValues();
-            ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
-            float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
-            float firstX = gridToScreenX(lefterBound);
-            float currentLines[] = chartLines[lineIdx];
-            for (int row = 0; row < righterBound - lefterBound; ++row) {
-                int offset = 4 * row;
-
-                currentLines[offset] = row == 0 ? firstX : currentLines[offset + 2 - 4];
-                currentLines[offset + 1] = row == 0 ? (gridToScreenYFast - gridStepY * (multiplier * valuesFast[row + lefterBound])) : currentLines[offset + 3 - 4];
-                currentLines[offset + 2] = firstX + (row + 1) * gridStepX;
-                currentLines[offset + 3] = gridToScreenYFast - gridStepY * (multiplier * valuesFast[row + lefterBound + 1]);
-            }
-            chartLineLengths[lineIdx] = 4 * (righterBound - lefterBound - 1);
-            lineIdx++;
-        }
+        chartPainter.update();
 
         if (reset) {
             vertGridPainter.update();
@@ -1177,7 +1376,7 @@ public class ChartView extends View implements RangeListener {
         for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
             ColumnDataSource columnDataSource = visibleLineColumnSources.get(c);
             hintValuePaint.setColor(hintTitlePaint.getColor());
-            hintValuePaint.setAlpha(chartPaints[c].getAlpha());
+            hintValuePaint.setAlpha(chartPainter.getPaint(c).getAlpha());
             hintValuePaint.setTextAlign(Paint.Align.LEFT);
             canvas.drawText(columnDataSource.getName(), left, currentTop, hintValuePaint);
 
@@ -1213,16 +1412,14 @@ public class ChartView extends View implements RangeListener {
             hintState = HINT_DISAPPEARING;
         }
 
-        float maxAvailableHintWidth = clipToPadding ? gridWidth : (getMeasuredWidth() - 4 * hintShadowRadius);
-        float hintScale = Math.min(1.0f, Math.max(0.3f, maxAvailableHintWidth / hintBitmap.getWidth()));
-        final float hintWidth = hintBitmap.getWidth() * hintScale;
-        final float hintHeight = hintBitmap.getHeight() * hintScale;
+        final float hintWidth = hintBitmap.getWidth();
+        final float hintHeight = hintBitmap.getHeight();
 
         float screenPercentage = (gridToScreenX(selectedRow) - leftGridOffset) / gridWidth;
-        float hintHorzOffset = 1f * hintScale * hintHorzPadding + hintScale * (hintWidth - 2 * hintHorzPadding) * screenPercentage;
+        float hintHorzOffset = screenPercentage > 0.5f ? (- hintWidth - hintHorzPadding) : hintHorzPadding;
 
-        float hintLeft = x - hintHorzOffset;
-        hintLeft = Math.max(hintLeft, clipToPadding ? leftGridOffset : 2 * hintScale * hintShadowRadius);
+        float hintLeft = x + hintHorzOffset;
+        hintLeft = Math.max(hintLeft, clipToPadding ? leftGridOffset : 2 * hintShadowRadius);
         float hintRight = hintLeft + hintWidth;
         hintRight = Math.min(hintRight, getMeasuredWidth() - (clipToPadding ? rightGridOffset : 2 * hintShadowRadius));
         hintLeft = hintRight - hintWidth;
@@ -1334,43 +1531,16 @@ public class ChartView extends View implements RangeListener {
             canvas.clipRect(getPaddingLeft(), getPaddingTop(), getMeasuredWidth() - getPaddingRight(), getMeasuredHeight() - getPaddingBottom());
         }
 
-        // draw vertical line for selected row
-        if (selectedRow > -1) {
-            float x = gridToScreenX(selectedRow);
-            float lineTop = topGridOffset;
-            if (hintState == HINT_VISIBLE) {
-                lineTop = Math.min(lineTop, hintBitmapDstRect.bottom - 2 * hintShadowRadius);
-            }
-            canvas.drawLine(x, lineTop, x, topGridOffset + gridHeight, selectedLinePaint);
-        }
+        // draw main chart
+        chartPainter.draw(canvas);
 
         // draw vertical grid
         vertGridPainter.draw(canvas);
-
-        // draw lines
-        for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
-            if (chartLineLengths[lineIdx] > 0) {
-                canvas.drawLines(chartLines[lineIdx], 0, chartLineLengths[lineIdx], chartPaints[lineIdx]);
-            }
-        }
 
         // draw horizontal grid
         horzGridPainter.draw(canvas);
 
         // draw hint
-        if (selectedRow > -1) {
-            float x = gridToScreenX(selectedRow);
-            if (x >= 0 && x <= getMeasuredWidth()) {
-                int lineIdx = 0;
-                for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
-                    float y = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedRow));
-                    selectedCircleFillPaint.setAlpha(chartPaints[lineIdx].getAlpha());
-                    canvas.drawCircle(x, y, selectedCircleRadius, selectedCircleFillPaint);
-                    canvas.drawCircle(x, y, selectedCircleRadius, chartPaints[lineIdx++]);
-                }
-            }
-        }
-
         if (hintState != HINT_INVISIBLE) {
             canvas.drawBitmap(hintBitmap, hintBitmapSrcRect, hintBitmapDstRect, hintCopyPaint);
         }

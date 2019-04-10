@@ -221,8 +221,8 @@ public class MainActivity extends Activity {
             chartGroup.setHeaderColor(darkMode ? 0xff7bc4fb : 0xff3896d4);
             chartGroup.setBackgroundColor(darkMode ? 0xff1d2733 : 0xffffffff);
             chartGroup.getChartView().setHintTitleTextColor(darkMode ? 0xffe5eff5 : 0xff000000);
-            chartGroup.getChartView().setGridLineColor(darkMode ? 0xff182122 : 0xfff3f3f3);
-            chartGroup.getChartView().setGridTextColor(darkMode ? 0xff4d5f6e : 0xffa0abb2);
+            chartGroup.getChartView().setGridLineColor(darkMode ? 0x19ffffff : 0x12182d3b);
+            chartGroup.getChartView().setGridTextColor(darkMode ? 0xffa3b1c2 : 0x99a3b1c2);
             chartGroup.getChartView().setSelectedCircleFillColor(darkMode ? 0xff1d2733 : 0xffffffff);
             chartGroup.getChartView().setHintBackgroundColor(darkMode ? 0xff202b38 : 0xffffffff);
             chartGroup.getChartNavigationView().setBackgroundColor(darkMode ? 0xa00f1e30 : 0xa0f5f6f9);
