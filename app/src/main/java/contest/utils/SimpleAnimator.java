@@ -1,5 +1,6 @@
 package contest.utils;
 
+import android.util.Log;
 import android.view.Choreographer;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
@@ -77,7 +78,6 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
 
     public void start() {
         Choreographer.getInstance().removeFrameCallback(this);
-        Choreographer.getInstance().postFrameCallback(this);
         startTime = System.nanoTime();
         endTime = startTime + duration * 1000000L;
         running = true;
@@ -120,13 +120,14 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
         this.fraction = (frameTimeNanos - startTime) / (float) (endTime - startTime);
         fraction = Math.max(0f, Math.min(1f, fraction));
         fraction = interpolator.getInterpolation(fraction);
-        for (Object animatedValue: animatedValues.values()) {
+        for (Map.Entry<Integer, Object> entry: animatedValues.entrySet()) {
+            Object animatedValue = entry.getValue();
             if (animatedValue instanceof IntValue) {
                 IntValue value = (IntValue) animatedValue;
                 value.current = (int) (value.from + (value.to - value.from) * fraction);
             } else if (animatedValue instanceof FloatValue) {
                 FloatValue value = (FloatValue) animatedValue;
-                value.current = (int) (value.from + (value.to - value.from) * fraction);
+                value.current = value.from + (value.to - value.from) * fraction;
             }
         }
         if (listener != null) {

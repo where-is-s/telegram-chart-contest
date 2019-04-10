@@ -53,7 +53,7 @@ public class ChartGroup extends LinearLayout {
         headerText = new TextView(getContext());
         headerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         headerText.setTextColor(0xff3896d4);
-        headerText.setTypeface(GeneralUtils.getMediumTypeface());
+        headerText.setTypeface(GeneralUtils.getBoldTypeface());
         headerText.setPadding(dp16, GeneralUtils.dp2px(getContext(), 24), dp16, dp16);
         addView(headerText, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 

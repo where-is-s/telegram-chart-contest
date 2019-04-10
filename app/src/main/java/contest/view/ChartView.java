@@ -116,7 +116,6 @@ public class ChartView extends View implements RangeListener {
     private Paint hintTitlePaint;
     private Paint hintBodyPaint;
     private Paint hintValuePaint;
-    private Paint hintNamePaint;
     private Paint hintCopyPaint;
 
     static class VertGridLine {
@@ -631,17 +630,13 @@ public class ChartView extends View implements RangeListener {
         selectedCircleFillPaint.setStyle(Paint.Style.FILL);
         hintTitlePaint = new Paint();
         hintTitlePaint.setAntiAlias(true);
-        hintTitlePaint.setTypeface(GeneralUtils.getMediumTypeface());
+        hintTitlePaint.setTypeface(GeneralUtils.getBoldTypeface());
         hintTitlePaint.setStyle(Paint.Style.FILL);
         hintBodyPaint = new Paint();
         hintBodyPaint.setStyle(Paint.Style.FILL);
         hintValuePaint = new Paint();
         hintValuePaint.setAntiAlias(true);
         hintValuePaint.setStyle(Paint.Style.FILL);
-        hintValuePaint.setTypeface(GeneralUtils.getMediumTypeface());
-        hintNamePaint = new Paint();
-        hintNamePaint.setAntiAlias(true);
-        hintNamePaint.setStyle(Paint.Style.FILL);
         hintCopyPaint = new Paint();
         hintCopyPaint.setAntiAlias(true);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
@@ -655,12 +650,11 @@ public class ChartView extends View implements RangeListener {
         setGridLineWidth(GeneralUtils.dp2px(getContext(), 1));
         setHintBackgroundColor(Color.WHITE);
         setHintTitleTextColor(0xff222222);
-        setHintTitleTextSize(GeneralUtils.sp2px(getContext(), 12));
+        setHintTitleTextSize(GeneralUtils.sp2px(getContext(), 13));
         setHintVertPadding(GeneralUtils.dp2px(getContext(), 6));
         setHintHorzPadding(GeneralUtils.dp2px(getContext(), 14));
         setHintHorzMargin(GeneralUtils.dp2px(getContext(), 20));
-        setHintChartValueTextSize(GeneralUtils.sp2px(getContext(), 15));
-        setHintChartNameTextSize(GeneralUtils.sp2px(getContext(), 12));
+        setHintChartValueTextSize(GeneralUtils.sp2px(getContext(), 13));
         setClipToPadding(false);
         setFingerSize(GeneralUtils.dp2px(getContext(), 24));
         setAnimationSpeed(300);
@@ -757,11 +751,6 @@ public class ChartView extends View implements RangeListener {
 
     public void setHintChartValueTextSize(float hintChartValueTextSize) {
         hintValuePaint.setTextSize(hintChartValueTextSize);
-        updateHint();
-    }
-
-    public void setHintChartNameTextSize(float hintChartNameTextSize) {
-        hintNamePaint.setTextSize(hintChartNameTextSize);
         updateHint();
     }
 
@@ -1144,19 +1133,17 @@ public class ChartView extends View implements RangeListener {
             calculatedHintHeight = 0;
             return;
         }
-        float titleTextWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE));
-        float bodyWidth = 0;
+        float bodyWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE));
         for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
             float lineHintWidth;
             lineHintWidth = hintValuePaint.measureText(columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE));
-            lineHintWidth = Math.max(lineHintWidth, hintNamePaint.measureText(columnDataSource.getName()));
-            if (bodyWidth > 0.01f) {
-                bodyWidth += hintHorzMargin;
-            }
-            bodyWidth += lineHintWidth;
+            lineHintWidth += hintHorzMargin;
+            lineHintWidth += hintValuePaint.measureText(columnDataSource.getName());
+            bodyWidth = Math.max(bodyWidth, lineHintWidth);
         }
-        calculatedHintWidth = 2 * hintHorzPadding + Math.max(titleTextWidth, bodyWidth);
-        calculatedHintHeight = hintVertPadding + getFontHeight(hintTitlePaint) + hintVertPadding + getFontHeight(hintValuePaint) + hintVertPadding + getFontHeight(hintNamePaint) + hintVertPadding;
+        calculatedHintWidth = 4 * hintShadowRadius + 2 * hintHorzPadding + bodyWidth;
+        calculatedHintHeight = 4 * hintShadowRadius + hintVertPadding + getFontHeight(hintTitlePaint) + hintVertPadding
+                + (getFontHeight(hintValuePaint) + hintVertPadding) * visibleLineColumnSources.size() + hintVertPadding;
         drawHintBitmap();
         placeHint();
     }
@@ -1172,7 +1159,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         if (hintBitmap == null) {
-            hintBitmap = Bitmap.createBitmap((int) (calculatedHintWidth + 4 * hintShadowRadius), (int) (calculatedHintHeight + 4 * hintShadowRadius), Bitmap.Config.ARGB_8888);
+            hintBitmap = Bitmap.createBitmap((int) calculatedHintWidth, (int) calculatedHintHeight, Bitmap.Config.ARGB_8888);
             hintBitmapSrcRect.left = 0;
             hintBitmapSrcRect.top = 0;
             hintBitmapSrcRect.right = hintBitmap.getWidth();
@@ -1180,26 +1167,26 @@ public class ChartView extends View implements RangeListener {
         }
 
         Canvas canvas = new Canvas(hintBitmap);
-        RectF hintRect = new RectF(hintShadowRadius * 2, hintShadowRadius * 2, calculatedHintWidth + hintShadowRadius * 2, calculatedHintHeight + hintShadowRadius * 2);
+        RectF hintRect = new RectF(hintShadowRadius * 2, hintShadowRadius * 2, calculatedHintWidth - hintShadowRadius * 2, calculatedHintHeight - hintShadowRadius * 2);
         canvas.drawRoundRect(hintRect, hintBorderRadius, hintBorderRadius, hintBodyPaint);
         canvas.drawText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + getFontHeight(hintTitlePaint), hintTitlePaint);
-        float currentLeft = hintRect.left + hintHorzPadding;
-        float currentTop = hintRect.top + hintVertPadding + getFontHeight(hintTitlePaint) + hintVertPadding;
+        float left = hintRect.left + hintHorzPadding;
+        float right = hintRect.right - hintHorzPadding;
+        float fontHeight = getFontHeight(hintValuePaint);
+        float currentTop = hintRect.top + hintVertPadding + getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
         for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
             ColumnDataSource columnDataSource = visibleLineColumnSources.get(c);
-            float lineHintWidth;
-            hintValuePaint.setColor(columnDataSource.getColor());
+            hintValuePaint.setColor(hintTitlePaint.getColor());
             hintValuePaint.setAlpha(chartPaints[c].getAlpha());
+            hintValuePaint.setTextAlign(Paint.Align.LEFT);
+            canvas.drawText(columnDataSource.getName(), left, currentTop, hintValuePaint);
+
+            hintValuePaint.setColor(columnDataSource.getColor());
+            hintValuePaint.setTextAlign(Paint.Align.RIGHT);
             String value = columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE);
-            canvas.drawText(value, currentLeft, currentTop + hintValuePaint.getTextSize(), hintValuePaint);
-            lineHintWidth = hintValuePaint.measureText(value);
+            canvas.drawText(value, right, currentTop, hintValuePaint);
 
-            hintNamePaint.setColor(columnDataSource.getColor());
-            hintNamePaint.setAlpha(chartPaints[c].getAlpha());
-            canvas.drawText(columnDataSource.getName(), currentLeft, currentTop + hintValuePaint.getTextSize() + hintVertPadding / 2 + hintNamePaint.getTextSize(), hintNamePaint);
-            lineHintWidth = Math.max(lineHintWidth, hintNamePaint.measureText(columnDataSource.getName()));
-
-            currentLeft += lineHintWidth + hintHorzMargin;
+            currentTop += fontHeight + hintVertPadding;
         }
 
         invalidate();

@@ -18,13 +18,8 @@ public class GeneralUtils {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, context.getResources().getDisplayMetrics());
     }
 
-    public static Typeface getMediumTypeface() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            return Typeface.create("sans-serif-medium", Typeface.NORMAL);
-        } else {
-            // rough fallback... sorry about that, just keeping the app small
-            return Typeface.create("sans-serif", Typeface.BOLD);
-        }
+    public static Typeface getBoldTypeface() {
+        return Typeface.create("sans-serif", Typeface.BOLD);
     }
 
 }

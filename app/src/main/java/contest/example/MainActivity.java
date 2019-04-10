@@ -82,7 +82,7 @@ public class MainActivity extends Activity {
         TextView settingsHeader = new TextView(this);
         settingsHeader.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         settingsHeader.setTextColor(0xff808080);
-        settingsHeader.setTypeface(GeneralUtils.getMediumTypeface());
+        settingsHeader.setTypeface(GeneralUtils.getBoldTypeface());
         settingsHeader.setPadding(0, dp8, dp16, dp8);
         settingsHeader.setText("Settings");
         settingsLayout.addView(settingsHeader, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
