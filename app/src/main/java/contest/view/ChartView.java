@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
@@ -19,7 +20,9 @@ import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import contest.datasource.ChartDataSource;
 import contest.datasource.ColumnDataSource;
@@ -93,7 +96,7 @@ public class ChartView extends View implements RangeListener {
 
     private VertGridPainter vertGridPainter = new VertGridPainter();
     private HorzGridPainter horzGridPainter = new HorzGridPainter();
-    private ChartPainter chartPainter = new BarStackPainter();
+    private ChartPainter chartPainter = new PercentagePainter();
 
     private Bitmap hintBitmap;
     private float calculatedHintWidth;
@@ -117,14 +120,16 @@ public class ChartView extends View implements RangeListener {
     private int selectedCircleFillColor;
     private float selectedLineWidth;
 
-    private interface ChartPainter {
-        Paint getPaint(int idx);
-        void update();
-        void draw(Canvas canvas);
-        boolean isStacking();
+    private static abstract class ChartPainter {
+        abstract Paint getPaint(int idx);
+        abstract void update();
+        abstract void draw(Canvas canvas);
+        abstract boolean isStacking();
+        Float getFixedBottom() { return null; }
+        Float getFixedTop() { return null; }
     }
 
-    private class LineChartPainter implements ChartPainter {
+    private class LineChartPainter extends ChartPainter {
         Paint chartPaints[] = new Paint[] {};
         float chartLines[][] = new float[][] {};
         int chartLinesLength;
@@ -237,7 +242,7 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    private class BarStackPainter implements ChartPainter {
+    private class BarStackPainter extends ChartPainter {
         Paint chartPaints[] = new Paint[] {};
         float chartLines[][] = new float[][] {};
         int chartLinesLength;
@@ -287,9 +292,8 @@ public class ChartView extends View implements RangeListener {
                 float firstX = gridToScreenX(lefterBound) + gridStepX / 2 - gridStepX * lefterBound / columnDataSource.getRowsCount();
                 float fixedGridStepX = gridStepX - gridStepX * 1 / columnDataSource.getRowsCount();
                 float currentLines[] = chartLines[chartIdx];
-                float prevLines[] = chartIdx > 0 ? chartLines[chartIdx - 1] : null;
                 chartPaints[chartIdx].setStrokeWidth(gridStepX + 0.5f);
-                if (prevLines == null) {
+                if (chartIdx == 0) {
                     for (int row = 0; row <= righterBound - lefterBound; ++row) {
                         int offset = 4 * row;
                         currentLines[offset] = row == 0 ? firstX : (currentLines[offset + 2 - 4] + fixedGridStepX);
@@ -300,10 +304,10 @@ public class ChartView extends View implements RangeListener {
                 } else {
                     for (int row = 0; row <= righterBound - lefterBound; ++row) {
                         int offset = 4 * row;
-                        currentLines[offset] = prevLines[offset];
-                        currentLines[offset + 1] = prevLines[offset + 1] - gridStepY * (multiplier * valuesFast[row + lefterBound]);
-                        currentLines[offset + 2] = prevLines[offset];
-                        currentLines[offset + 3] = prevLines[offset + 1];
+                        currentLines[offset] = chartLines[chartIdx - 1][offset];
+                        currentLines[offset + 1] = chartLines[chartIdx - 1][offset + 1] - gridStepY * (multiplier * valuesFast[row + lefterBound]);
+                        currentLines[offset + 2] = chartLines[chartIdx - 1][offset];
+                        currentLines[offset + 3] = chartLines[chartIdx - 1][offset + 1];
                     }
                 }
                 chartIdx++;
@@ -318,7 +322,8 @@ public class ChartView extends View implements RangeListener {
                 if (selectedRow > -1) {
                     color = chartPaints[lineIdx].getColor();
                     int backgroundColor = Color.WHITE; // TODO!
-                    chartPaints[lineIdx].setColor(Color.rgb(
+                    chartPaints[lineIdx].setColor(Color.argb(
+                            chartPaints[lineIdx].getAlpha(),
                             (Color.red(color) + Color.red(backgroundColor)) / 2,
                             (Color.green(color) + Color.green(backgroundColor)) / 2,
                             (Color.blue(color) + Color.blue(backgroundColor)) / 2
@@ -342,6 +347,138 @@ public class ChartView extends View implements RangeListener {
         @Override
         public boolean isStacking() {
             return true;
+        }
+    }
+
+    private class PercentagePainter extends ChartPainter {
+        Paint selectedLinePaint;
+        Paint chartPaints[] = new Paint[] {};
+        Path chartPaths[] = new Path[] {};
+        int chartLinesLength;
+        BarStackPainter barStackPainter = null;
+
+        public PercentagePainter() {
+            selectedLinePaint = new Paint();
+            selectedLinePaint.setStyle(Paint.Style.STROKE);
+        }
+
+        @Override
+        public Paint getPaint(int idx) {
+            if (barStackPainter != null) {
+                return barStackPainter.chartPaints[idx];
+            } else {
+                return chartPaints[idx];
+            }
+        }
+
+        @Override
+        public void update() {
+            int lefterBound = getLefterBound();
+            int righterBound = getRighterBound();
+            chartLinesLength = 4 * (righterBound - lefterBound);
+            if (righterBound > lefterBound + 1000000) { // TODO
+                if (barStackPainter == null) {
+                    barStackPainter = new BarStackPainter();
+                }
+                barStackPainter.update();
+                return;
+            } else {
+                barStackPainter = null;
+            }
+
+            if (chartLinesLength < 0) {
+                return;
+            }
+            if (chartPaths.length < visibleLineColumnSources.size()) {
+                chartPaths = new Path[visibleLineColumnSources.size()];
+                chartPaints = new Paint[visibleLineColumnSources.size()];
+            }
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                Paint paint = chartPaints[c];
+                if (paint == null) {
+                    paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    paint.setStyle(Paint.Style.FILL);
+                }
+                paint.setColor(visibleLineColumnSources.get(c).getColor());
+                chartPaints[c] = paint;
+            }
+
+            float gridBottom = topGridOffset + gridHeight;
+            float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
+
+            List<ColumnDataSource> columnsList = new ArrayList<>();
+            for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
+                ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
+                if (columnDataSource.getType().equals(ColumnType.X)
+                        || !chartDataSource.isColumnVisible(column)) {
+                    continue;
+                }
+                columnsList.add(columnDataSource);
+            }
+            long[][] fastValues = new long[columnsList.size()][];
+            int i = 0;
+            for (ColumnDataSource column: columnsList) {
+                fastValues[i++] = column.getValues();
+            }
+
+            float firstX = gridToScreenX(lefterBound);
+            for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                Path currentPath = new Path();
+                chartPaths[chartIdx] = currentPath;
+                chartPaths[chartIdx].moveTo(firstX, gridBottom);
+            }
+
+            for (int row = 0; row <= righterBound - lefterBound; ++row) {
+                float curValue = gridToScreenYFast;
+                float total = 0f;
+                for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                    total += fastValues[chartIdx][row + lefterBound];
+                }
+                for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                    curValue -= fastValues[chartIdx][row + lefterBound] / total * gridHeight;
+                    chartPaths[chartIdx].lineTo(firstX + row * gridStepX, curValue);
+                }
+            }
+
+            for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                chartPaths[chartIdx].lineTo(firstX + (righterBound - lefterBound) * gridStepX, gridBottom);
+                chartPaths[chartIdx].close();
+            }
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            if (barStackPainter != null) {
+                barStackPainter.draw(canvas);
+                return;
+            }
+            for (int p = visibleLineColumnSources.size() - 1; p >= 0; --p) {
+                canvas.drawPath(chartPaths[p], chartPaints[p]);
+            }
+
+            // draw vertical line for selected row
+            if (selectedRow > -1) {
+                selectedLinePaint.setColor(selectedLineColor);
+                selectedLinePaint.setStrokeWidth(selectedLineWidth);
+                float x = gridToScreenX(selectedRow);
+                float lineTop = topGridOffset;
+                canvas.drawLine(x, lineTop, x, topGridOffset + gridHeight, selectedLinePaint);
+            }
+        }
+
+        @Override
+        public boolean isStacking() {
+            return true;
+        }
+
+        @Override
+        Float getFixedTop() {
+            return 100f;
+        }
+
+        @Override
+        Float getFixedBottom() {
+            return 0f;
         }
     }
 
@@ -765,7 +902,7 @@ public class ChartView extends View implements RangeListener {
         }
     });
 
-    private RangeListener listener;
+    private Set<RangeListener> rangeListeners = new HashSet<>();
 
     private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
         @Override
@@ -891,8 +1028,12 @@ public class ChartView extends View implements RangeListener {
         updateGridOffsets();
     }
 
-    public void setChartNavigationView(RangeListener listener) {
-        this.listener = listener;
+    public void addListener(RangeListener listener) {
+        this.rangeListeners.add(listener);
+    }
+
+    public void removeListener(RangeListener listener) {
+        this.rangeListeners.remove(listener);
     }
 
     public void setChartLineWidth(float chartLineWidth) {
@@ -1103,6 +1244,10 @@ public class ChartView extends View implements RangeListener {
         updateChart(true);
     }
 
+    public ChartDataSource getChartDataSource() {
+        return chartDataSource;
+    }
+
     private void updateColumns() {
         visibleLineColumnSources.clear();
         for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
@@ -1160,6 +1305,15 @@ public class ChartView extends View implements RangeListener {
     }
 
     private void calculateVertBounds() {
+        if (chartPainter.getFixedBottom() != null || chartPainter.getFixedTop() != null) {
+            if (chartPainter.getFixedBottom() != null && chartPainter.getFixedTop() != null) {
+                calculatedBottomBound = chartPainter.getFixedBottom();
+                calculatedTopBound = chartPainter.getFixedTop();
+                return;
+            } else {
+                throw new IllegalArgumentException(); // maybe implement later
+            }
+        }
         int lefterBound = getLefterBound();
         int righterBound = getRighterBound();
         boolean stacking = chartPainter.isStacking();
@@ -1253,8 +1407,8 @@ public class ChartView extends View implements RangeListener {
         if (!rightBoundFixed) {
             rightBound = Math.min(chartDataSource.getRowsCount() - 1, right);
         }
-        if (listener != null) {
-            listener.onRangeSelected(leftBound, rightBound);
+        for (RangeListener rangeListener: rangeListeners) {
+            rangeListener.onRangeSelected(leftBound, rightBound);
         }
         updateGridOffsets();
         if (animation) {
@@ -1424,15 +1578,28 @@ public class ChartView extends View implements RangeListener {
         hintRight = Math.min(hintRight, getMeasuredWidth() - (clipToPadding ? rightGridOffset : 2 * hintShadowRadius));
         hintLeft = hintRight - hintWidth;
 
-        float hintTop = getPaddingTop();
+        float hintTop = topGridOffset;
         if (!clipToPadding) {
-            for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
+            if (chartPainter.getFixedTop() != null) {
+                //
+            } else if (chartPainter.isStacking()) {
                 for (int rowOffset = -3; rowOffset <= 3; ++rowOffset) {
                     if (selectedRow + rowOffset < 0 || selectedRow + rowOffset >= chartDataSource.getRowsCount()) {
                         continue;
                     }
-                    float y = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedRow + rowOffset));
-                    hintTop = Math.max(hintShadowRadius, Math.min(hintTop, y - hintHeight - 2 * hintShadowRadius));
+                    if (chartPainter.isStacking()) {
+                        float stack = 0;
+                        for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                            stack += columnDataSource.getValue(selectedRow + rowOffset);
+                        }
+                        float y = gridToScreenY(ChartDataSource.YAxis.NONE, stack);
+                        hintTop = Math.max(hintShadowRadius, Math.min(hintTop, y - hintHeight - 2 * hintShadowRadius));
+                    } else {
+                        for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                            float y = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedRow + rowOffset));
+                            hintTop = Math.max(hintShadowRadius, Math.min(hintTop, y - hintHeight - 2 * hintShadowRadius));
+                        }
+                    }
                 }
             }
         }
