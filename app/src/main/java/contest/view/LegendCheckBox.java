@@ -67,7 +67,7 @@ public class LegendCheckBox extends View {
         textPaint.setColor(Color.WHITE);
         textPaint.setTypeface(GeneralUtils.getMediumTypeface());
         backgroundPaint.setStyle(Paint.Style.FILL);
-        backgroundPaint.setStrokeWidth(GeneralUtils.dp2px(getContext(), 3));
+        backgroundPaint.setStrokeWidth(GeneralUtils.dp2px(getContext(), 2));
         setEdgeRadius(GeneralUtils.dp2px(getContext(), 17));
         setTextSize(GeneralUtils.sp2px(getContext(), 16));
         setClickable(true);

@@ -7,8 +7,12 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
@@ -57,6 +61,9 @@ public class ChartNavigationView extends View implements RangeListener {
     private float gridStepY;
 
     private Bitmap chartLines;
+    private Bitmap cornerCoverBitmap;
+    private Bitmap leftSelectorEdgeBitmap;
+    private Bitmap rightSelectorEdgeBitmap;
 
     // animation helpers
     private Paint chartLinesPaint;
@@ -185,11 +192,9 @@ public class ChartNavigationView extends View implements RangeListener {
     }
 
     private void init() {
-        backgroundPaint = new Paint();
-        backgroundPaint.setAntiAlias(true);
+        backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         backgroundPaint.setStyle(Paint.Style.FILL);
-        windowPaint = new Paint();
-        windowPaint.setAntiAlias(true);
+        windowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         windowPaint.setStyle(Paint.Style.FILL);
         chartLinesPaint = new Paint();
         chartLinesPaint.setAntiAlias(true);
@@ -198,11 +203,11 @@ public class ChartNavigationView extends View implements RangeListener {
         oldChartLinesPaint.setAntiAlias(true);
         oldChartLinesPaint.setAlpha(0);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
-        setWindowVerticalFrameSize(GeneralUtils.dp2px(getContext(), 4));
-        setWindowHorizontalFrameSize(GeneralUtils.dp2px(getContext(), 2));
+        setWindowVerticalFrameSize(GeneralUtils.dp2px(getContext(), 10));
+        setWindowHorizontalFrameSize(GeneralUtils.dp2px(getContext(), 1.5f));
         setFingerSize(GeneralUtils.dp2px(getContext(), 32));
-        setBackgroundColor(0xa0f5f6f9);
-        setWindowColor(0x60a5bed1);
+        setBackgroundColor(0x99E2EEF9);
+        setWindowColor(0x8086A9C4);
     }
 
     public void setWindowSizeMinRows(int windowSizeMinRows) {
@@ -403,7 +408,7 @@ public class ChartNavigationView extends View implements RangeListener {
         bottomGridOffset = getPaddingBottom() + 2 * windowHorizontalFrameSize;
         gridWidth = getMeasuredWidth() - leftGridOffset - rightGridOffset;
         gridHeight = getMeasuredHeight() - topGridOffset - bottomGridOffset;
-        gridStepX = (chartDataSource.getRowsCount()) <= 1 ? 0 : gridWidth / (chartDataSource.getRowsCount());
+        gridStepX = (chartDataSource.getRowsCount()) <= 1 ? 0 : gridWidth / (chartDataSource.getRowsCount() - 1);
         gridStepY = (topBound - bottomBound) <= 1 ? 0 : gridHeight / (topBound - bottomBound);
     }
 
@@ -466,6 +471,44 @@ public class ChartNavigationView extends View implements RangeListener {
                 getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));
 
         update();
+        updateBitmaps();
+    }
+
+    private void updateBitmaps() {
+        float cornerRadius = GeneralUtils.dp2px(getContext(), 6);
+        cornerCoverBitmap = Bitmap.createBitmap(getMeasuredWidth(), getMeasuredHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(cornerCoverBitmap);
+        canvas.drawColor(Color.WHITE); // TODO
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_OUT));
+        RectF rect = new RectF(leftGridOffset, topGridOffset, leftGridOffset + gridWidth, topGridOffset + gridHeight);
+        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint);
+
+        leftSelectorEdgeBitmap = Bitmap.createBitmap((int) windowVerticalFrameSize, (int) gridHeight, Bitmap.Config.ARGB_8888);
+        rightSelectorEdgeBitmap = Bitmap.createBitmap((int) windowVerticalFrameSize, (int) gridHeight, Bitmap.Config.ARGB_8888);
+        Canvas leftCanvas = new Canvas(leftSelectorEdgeBitmap);
+        Canvas rightCanvas = new Canvas(rightSelectorEdgeBitmap);
+        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(windowPaint.getColor());
+        rect = new RectF(0, 0, windowVerticalFrameSize * 2, gridHeight);
+        leftCanvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint);
+        rect = new RectF(-windowVerticalFrameSize, 0, windowVerticalFrameSize, gridHeight);
+        rightCanvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint);
+
+        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(Color.WHITE);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(GeneralUtils.dp2px(getContext(), 2));
+        float lineHalfLength = GeneralUtils.dp2px(getContext(), 6);
+        leftCanvas.drawLine(leftSelectorEdgeBitmap.getWidth() * 0.5f, leftSelectorEdgeBitmap.getHeight() * 0.5f - lineHalfLength,
+                leftSelectorEdgeBitmap.getWidth() * 0.5f, leftSelectorEdgeBitmap.getHeight() * 0.5f + lineHalfLength,
+                paint);
+        rightCanvas.drawLine(leftSelectorEdgeBitmap.getWidth() * 0.5f, leftSelectorEdgeBitmap.getHeight() * 0.5f - lineHalfLength,
+                leftSelectorEdgeBitmap.getWidth() * 0.5f, leftSelectorEdgeBitmap.getHeight() * 0.5f + lineHalfLength,
+                paint);
     }
 
     @Override
@@ -494,24 +537,28 @@ public class ChartNavigationView extends View implements RangeListener {
 
         float windowLeft = gridToScreenX(windowLeftRow);
         float windowRight = gridToScreenX(windowRightRow);
-        float top = topGridOffset - windowHorizontalFrameSize;
-        float bottom = topGridOffset + gridHeight + windowHorizontalFrameSize;
+        float top = topGridOffset; // - windowHorizontalFrameSize;
+        float bottom = topGridOffset + gridHeight; // + windowHorizontalFrameSize;
 
         canvas.drawRect(leftGridOffset,
                 top,
-                windowLeft,
+                windowLeft + windowVerticalFrameSize,
                 bottom, backgroundPaint);
 
-        canvas.drawRect(windowRight,
+        canvas.drawRect(windowRight - windowVerticalFrameSize,
                 top,
                 leftGridOffset + gridWidth,
                 bottom, backgroundPaint);
 
-        canvas.drawRect(windowLeft, top, windowLeft + windowVerticalFrameSize, bottom, windowPaint);
-        canvas.drawRect(windowRight - windowVerticalFrameSize, top, windowRight, bottom, windowPaint);
+//        canvas.drawRect(windowLeft, top, windowLeft + windowVerticalFrameSize, bottom, windowPaint);
+//        canvas.drawRect(windowRight - windowVerticalFrameSize, top, windowRight, bottom, windowPaint);
+
+        canvas.drawBitmap(leftSelectorEdgeBitmap, windowLeft, top, null);
+        canvas.drawBitmap(rightSelectorEdgeBitmap, windowRight - windowVerticalFrameSize, top, null);
         canvas.drawRect(windowLeft + windowVerticalFrameSize, top, windowRight - windowVerticalFrameSize, top + windowHorizontalFrameSize, windowPaint);
         canvas.drawRect(windowLeft + windowVerticalFrameSize, bottom - windowHorizontalFrameSize, windowRight - windowVerticalFrameSize, bottom, windowPaint);
 
+        canvas.drawBitmap(cornerCoverBitmap, 0, 0, null);
     }
 
     @Override

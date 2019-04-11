@@ -53,11 +53,12 @@ public class ChartView extends View implements RangeListener {
     private static final int ANIMATE_TOP = 7;
 
     private ChartDataSource chartDataSource;
-    private List<ColumnDataSource> visibleLineColumnSources = new ArrayList<>();
+    private List<ColumnDataSource> visibleLineColumnSources = new ArrayList<>(); // includes animated column (appearing/disappearing)
     private ColumnDataSource xColumnSource;
     private ColumnDataSource yLeftColumnSource;
     private ColumnDataSource yRightColumnSource;
-    private ColumnDataSource animatingSource;
+    private ColumnDataSource animatingColumn;
+    private float animatingColumnOpacity; // 1f for opaque (alpha = 255), 0f for transparent (alpha = 0)
 
     private float chartLineWidth;
     private float vertGridLineInterval;
@@ -113,6 +114,7 @@ public class ChartView extends View implements RangeListener {
 
     private Paint hintTitlePaint;
     private Paint hintBodyPaint;
+    private Paint hintNamePaint;
     private Paint hintValuePaint;
     private Paint hintCopyPaint;
 
@@ -121,7 +123,6 @@ public class ChartView extends View implements RangeListener {
     private float selectedLineWidth;
 
     private static abstract class ChartPainter {
-        abstract Paint getPaint(int idx);
         abstract void update();
         abstract void draw(Canvas canvas);
         abstract boolean isStacking();
@@ -142,11 +143,6 @@ public class ChartView extends View implements RangeListener {
             selectedLinePaint.setStyle(Paint.Style.STROKE);
             selectedCircleFillPaint = new Paint();
             selectedCircleFillPaint.setStyle(Paint.Style.FILL);
-        }
-
-        @Override
-        public Paint getPaint(int idx) {
-            return chartPaints[idx];
         }
 
         @Override
@@ -251,11 +247,6 @@ public class ChartView extends View implements RangeListener {
         }
 
         @Override
-        public Paint getPaint(int idx) {
-            return chartPaints[idx];
-        }
-
-        @Override
         public void update() {
             int lefterBound = getLefterBound();
             int righterBound = getRighterBound();
@@ -323,7 +314,7 @@ public class ChartView extends View implements RangeListener {
                     color = chartPaints[lineIdx].getColor();
                     int backgroundColor = Color.WHITE; // TODO!
                     chartPaints[lineIdx].setColor(Color.argb(
-                            chartPaints[lineIdx].getAlpha(),
+                            animatingColumn == visibleLineColumnSources.get(lineIdx) ? (int) (animatingColumnOpacity * 255) : 255,
                             (Color.red(color) + Color.red(backgroundColor)) / 2,
                             (Color.green(color) + Color.green(backgroundColor)) / 2,
                             (Color.blue(color) + Color.blue(backgroundColor)) / 2
@@ -363,15 +354,6 @@ public class ChartView extends View implements RangeListener {
         }
 
         @Override
-        public Paint getPaint(int idx) {
-            if (barStackPainter != null) {
-                return barStackPainter.chartPaints[idx];
-            } else {
-                return chartPaints[idx];
-            }
-        }
-
-        @Override
         public void update() {
             int lefterBound = getLefterBound();
             int righterBound = getRighterBound();
@@ -406,18 +388,13 @@ public class ChartView extends View implements RangeListener {
             float gridBottom = topGridOffset + gridHeight;
             float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
 
-            List<ColumnDataSource> columnsList = new ArrayList<>();
-            for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
-                ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
-                if (columnDataSource.getType().equals(ColumnType.X)
-                        || !chartDataSource.isColumnVisible(column)) {
-                    continue;
-                }
-                columnsList.add(columnDataSource);
-            }
-            long[][] fastValues = new long[columnsList.size()][];
+            long[][] fastValues = new long[visibleLineColumnSources.size()][];
             int i = 0;
-            for (ColumnDataSource column: columnsList) {
+            int animatingColumnIdx = -1;
+            for (ColumnDataSource column: visibleLineColumnSources) {
+                if (column == animatingColumn) {
+                    animatingColumnIdx = i;
+                }
                 fastValues[i++] = column.getValues();
             }
 
@@ -432,10 +409,12 @@ public class ChartView extends View implements RangeListener {
                 float curValue = gridToScreenYFast;
                 float total = 0f;
                 for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
-                    total += fastValues[chartIdx][row + lefterBound];
+                    float opacityMultiplier = chartIdx != animatingColumnIdx ? 1f : animatingColumnOpacity;
+                    total += fastValues[chartIdx][row + lefterBound] * opacityMultiplier;
                 }
                 for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
-                    curValue -= fastValues[chartIdx][row + lefterBound] / total * gridHeight;
+                    float opacityMultiplier = chartIdx != animatingColumnIdx ? 1f : animatingColumnOpacity;
+                    curValue -= fastValues[chartIdx][row + lefterBound] * opacityMultiplier / total * gridHeight;
                     chartPaths[chartIdx].lineTo(firstX + row * gridStepX, curValue);
                 }
             }
@@ -574,7 +553,7 @@ public class ChartView extends View implements RangeListener {
             valueSpacing = (float) Math.floor((calculatedTopBound - calculatedBottomBound) / (linesCount - 1));
             valueSpacing = gridRound(valueSpacing);
             linesCount = (int) Math.floor((calculatedTopBound - calculatedBottomBound) / valueSpacing) + 1;
-            boolean drawLeft = yLeftColumnSource != null && chartDataSource.isColumnVisible(yLeftColumnSource);
+            boolean drawLeft = yRightColumnSource == null || (yLeftColumnSource != null && chartDataSource.isColumnVisible(yLeftColumnSource));
             boolean drawRight = yRightColumnSource != null && chartDataSource.isColumnVisible(yRightColumnSource);
             for (int i = 0; i < lines.size(); ++i) {
                 VertGridLine line = lines.valueAt(i);
@@ -908,17 +887,17 @@ public class ChartView extends View implements RangeListener {
         @Override
         public void onSetColumnVisibility(int column, boolean visible) {
             final ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
-            animatingSource = columnDataSource;
+            animatingColumn = columnDataSource;
             float savedTopBound = topBound;
             float savedBottomBound = bottomBound;
             if (chartAnimator != null) {
                 chartAnimator.cancel();
-                animatingSource = columnDataSource; // restore animating source because it is nulled on animation cancel
+                animatingColumn = columnDataSource; // restore animating source because it is nulled on animation cancel
                 updateColumns();
             }
             chartAnimator = new SimpleAnimator();
             chartAnimator.setDuration(animationSpeed);
-            chartAnimator.addValue(ANIMATE_ALPHA, visible ? 0 : 255, visible ? 255 : 0);
+            chartAnimator.addValue(ANIMATE_ALPHA, visible ? 0f : 1f, visible ? 1f : 0f);
             calculateVertBounds();
             chartAnimator.addValue(ANIMATE_TOP_BOUND, savedTopBound, calculatedTopBound);
             chartAnimator.addValue(ANIMATE_BOTTOM_BOUND, savedBottomBound, calculatedBottomBound);
@@ -926,7 +905,6 @@ public class ChartView extends View implements RangeListener {
             if (visible) {
                 updateColumns();
             }
-            final Paint chartPaint = chartPainter.getPaint(visibleLineColumnSources.indexOf(columnDataSource));
             vertGridPainter.update();
             horzGridPainter.update();
             chartAnimator.setListener(new SimpleAnimator.Listener() {
@@ -939,7 +917,7 @@ public class ChartView extends View implements RangeListener {
                 @Override
                 public void onCancel() {
                     chartAnimator = null;
-                    animatingSource = null;
+                    animatingColumn = null;
                     updateColumns(); // invisible column will finally be removed from visibleLineColumnSources
                     updateHint();
                     updateChart(true);
@@ -949,7 +927,7 @@ public class ChartView extends View implements RangeListener {
                 public void onUpdate() {
                     vertGridPainter.animateFrame();
                     horzGridPainter.animateFrame();
-                    chartPaint.setAlpha(chartAnimator.getIntValue(ANIMATE_ALPHA));
+                    animatingColumnOpacity = chartAnimator.getFloatValue(ANIMATE_ALPHA);
                     updateHint();
                     if (!topBoundFixed) {
                         topBound = chartAnimator.getFloatValue(ANIMATE_TOP_BOUND);
@@ -991,17 +969,19 @@ public class ChartView extends View implements RangeListener {
     }
 
     private void init() {
-        hintTitlePaint = new Paint();
-        hintTitlePaint.setAntiAlias(true);
+        hintTitlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         hintTitlePaint.setTypeface(GeneralUtils.getBoldTypeface());
         hintTitlePaint.setStyle(Paint.Style.FILL);
         hintBodyPaint = new Paint();
         hintBodyPaint.setStyle(Paint.Style.FILL);
-        hintValuePaint = new Paint();
-        hintValuePaint.setAntiAlias(true);
+        hintNamePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        hintNamePaint.setStyle(Paint.Style.FILL);
+        hintNamePaint.setTextAlign(Paint.Align.LEFT);
+        hintValuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         hintValuePaint.setStyle(Paint.Style.FILL);
-        hintCopyPaint = new Paint();
-        hintCopyPaint.setAntiAlias(true);
+        hintValuePaint.setTypeface(GeneralUtils.getMediumTypeface());
+        hintValuePaint.setTextAlign(Paint.Align.RIGHT);
+        hintCopyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setVertGridLineInterval(GeneralUtils.dp2px(getContext(), 40));
         setHorzGridValueInterval(GeneralUtils.dp2px(getContext(), 20));
@@ -1093,6 +1073,7 @@ public class ChartView extends View implements RangeListener {
 
     public void setHintTitleTextColor(int hintTitleTextColor) {
         hintTitlePaint.setColor(hintTitleTextColor);
+        hintNamePaint.setColor(hintTitleTextColor);
         updateHint();
     }
 
@@ -1118,6 +1099,7 @@ public class ChartView extends View implements RangeListener {
 
     public void setHintChartValueTextSize(float hintChartValueTextSize) {
         hintValuePaint.setTextSize(hintChartValueTextSize);
+        hintNamePaint.setTextSize(hintChartValueTextSize);
         updateHint();
     }
 
@@ -1252,7 +1234,7 @@ public class ChartView extends View implements RangeListener {
         visibleLineColumnSources.clear();
         for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
             ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
-            if (!chartDataSource.isColumnVisible(column) && animatingSource != columnDataSource) {
+            if (!chartDataSource.isColumnVisible(column) && animatingColumn != columnDataSource) {
                 continue;
             }
             if (columnDataSource.getType().equals(ColumnType.LINE)) {
@@ -1484,9 +1466,9 @@ public class ChartView extends View implements RangeListener {
         float bodyWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE));
         for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
             float lineHintWidth;
-            lineHintWidth = hintValuePaint.measureText(columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE));
+            lineHintWidth = hintNamePaint.measureText(columnDataSource.getName());
             lineHintWidth += hintHorzMargin;
-            lineHintWidth += hintValuePaint.measureText(columnDataSource.getName());
+            lineHintWidth += hintValuePaint.measureText(columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE));
             bodyWidth = Math.max(bodyWidth, lineHintWidth);
         }
         calculatedHintWidth = 4 * hintShadowRadius + 2 * hintHorzPadding + bodyWidth;
@@ -1524,13 +1506,11 @@ public class ChartView extends View implements RangeListener {
         float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
         for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
             ColumnDataSource columnDataSource = visibleLineColumnSources.get(c);
-            hintValuePaint.setColor(hintTitlePaint.getColor());
-            hintValuePaint.setAlpha(chartPainter.getPaint(c).getAlpha());
-            hintValuePaint.setTextAlign(Paint.Align.LEFT);
-            canvas.drawText(columnDataSource.getName(), left, currentTop, hintValuePaint);
+            hintNamePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
+            canvas.drawText(columnDataSource.getName(), left, currentTop, hintNamePaint);
 
             hintValuePaint.setColor(columnDataSource.getColor());
-            hintValuePaint.setTextAlign(Paint.Align.RIGHT);
+            hintValuePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
             String value = columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE);
             canvas.drawText(value, right, currentTop, hintValuePaint);
 
