@@ -4,6 +4,7 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Color;
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.ViewGroup;
@@ -11,14 +12,18 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import contest.datasource.ChartDataSource;
+import contest.datasource.ColumnDataSource;
+import contest.datasource.ValueFormatType;
 import contest.utils.GeneralUtils;
 
 /**
  * Created by Alex K on 19/03/2019.
  */
-public class ChartGroup extends LinearLayout {
+public class ChartGroup extends LinearLayout implements RangeListener {
 
+    private LinearLayout headerLayout;
     private TextView headerText;
+    private TextView rangeText;
     private ChartView chartView;
     private ChartNavigationView chartNavigationView;
     private ChartLegendView chartLegendView;
@@ -50,20 +55,36 @@ public class ChartGroup extends LinearLayout {
         setOrientation(LinearLayout.VERTICAL);
         setBackgroundColor(Color.WHITE);
 
+        headerLayout = new LinearLayout(getContext());
+        headerLayout.setOrientation(HORIZONTAL);
+
         headerText = new TextView(getContext());
         headerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        headerText.setTextColor(0xff3896d4);
+        headerText.setTextColor(Color.BLACK);
         headerText.setTypeface(GeneralUtils.getBoldTypeface());
         headerText.setPadding(dp16, GeneralUtils.dp2px(getContext(), 24), dp16, dp16);
-        addView(headerText, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        headerText.setLines(1);
+        headerText.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT);
+        layoutParams.weight = 1;
+        headerLayout.addView(headerText, layoutParams);
+
+        rangeText = new TextView(getContext());
+        rangeText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        rangeText.setTextColor(Color.BLACK);
+        rangeText.setTypeface(GeneralUtils.getMediumTypeface());
+        rangeText.setPadding(0, GeneralUtils.dp2px(getContext(), 24), dp16, dp16);
+        layoutParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        headerLayout.addView(rangeText, layoutParams);
+
+        addView(headerLayout);
 
         chartView = new ChartView(getContext());
         chartView.setChartLineWidth(GeneralUtils.dp2px(getContext(), 1.5f));
         chartView.setBottomBound(0f);
-        chartView.setPadding(dp16, GeneralUtils.dp2px(getContext(), 72), dp16, dp16);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 360));
-        layoutParams.topMargin = -GeneralUtils.dp2px(getContext(), 68);
-        addView(chartView, layoutParams);
+        chartView.setPadding(dp16, dp16/4, dp16, dp16);
+        chartView.addListener(this);
+        addView(chartView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 360)));
         setClipToPadding(false);
         setClipChildren(false);
 
@@ -72,7 +93,7 @@ public class ChartGroup extends LinearLayout {
         chartNavigationView.setBottomBound(0f);
         chartNavigationView.setPadding(dp16, 0, dp16, 0);
         chartNavigationView.setChartView(chartView);
-        chartView.setChartNavigationView(chartNavigationView);
+        chartView.addListener(chartNavigationView);
         addView(chartNavigationView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 48)));
 
         chartLegendView = new ChartLegendView(getContext());
@@ -104,6 +125,26 @@ public class ChartGroup extends LinearLayout {
 
     public ChartLegendView getChartLegendView() {
         return chartLegendView;
+    }
+
+    @Override
+    public void onRangeSelected(float startRow, float endRow) {
+        ChartDataSource chartDataSource = chartView.getChartDataSource();
+        int xAxisColumnIdx = chartDataSource.getXAxisValueSourceColumn();
+        ColumnDataSource xAxisColumn = chartDataSource.getColumn(xAxisColumnIdx);
+        rangeText.setText(String.format("%s - %s",
+                xAxisColumn.formatValue(xAxisColumn.getValue((int) startRow), ValueFormatType.RANGE_TITLE),
+                xAxisColumn.formatValue(xAxisColumn.getValue((int) endRow), ValueFormatType.RANGE_TITLE)
+        ));
+
+    }
+
+    @Override
+    public void onStartDragging() {
+    }
+
+    @Override
+    public void onStopDragging() {
     }
 
 }

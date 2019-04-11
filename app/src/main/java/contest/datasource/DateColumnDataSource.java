@@ -8,8 +8,9 @@ import android.text.format.DateFormat;
  */
 public class DateColumnDataSource extends BaseColumnDataSource {
 
-    private final String dateFormat = "MMM dd";
-    private final String dateFormatLong = "EEE, MMM dd";
+    private final String dateFormat = "MMM d";
+    private final String dateFormatMedium = "d MMM yyyy";
+    private final String dateFormatLong = "EEE, MMM d yyyy";
 
     public DateColumnDataSource(ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);
@@ -17,7 +18,14 @@ public class DateColumnDataSource extends BaseColumnDataSource {
 
     @Override
     public String formatValue(long value, ValueFormatType valueFormatType) {
-        return String.valueOf(DateFormat.format(valueFormatType.equals(ValueFormatType.HINT_TITLE) ? dateFormatLong : dateFormat, value));
+        switch (valueFormatType) {
+            case HINT_TITLE:
+                return String.valueOf(DateFormat.format(dateFormatLong, value));
+            case RANGE_TITLE:
+                return String.valueOf(DateFormat.format(dateFormatMedium, value));
+            default:
+                return String.valueOf(DateFormat.format(dateFormat, value));
+        }
     }
 
 }

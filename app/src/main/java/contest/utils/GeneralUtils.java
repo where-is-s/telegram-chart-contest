@@ -22,4 +22,12 @@ public class GeneralUtils {
         return Typeface.create("sans-serif", Typeface.BOLD);
     }
 
+    public static Typeface getMediumTypeface() {
+        if (Build.VERSION.SDK_INT >= 21) {
+            return Typeface.create("sans-serif-medium", Typeface.NORMAL);
+        } else {
+            return getBoldTypeface();
+        }
+    }
+
 }
