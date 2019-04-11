@@ -227,8 +227,6 @@ public class MainActivity extends Activity {
             chartGroup.getChartView().setHintBackgroundColor(darkMode ? 0xff202b38 : 0xffffffff);
             chartGroup.getChartNavigationView().setBackgroundColor(darkMode ? 0xa00f1e30 : 0xa0f5f6f9);
             chartGroup.getChartNavigationView().setWindowColor(darkMode ? 0x606b869b : 0x60a5bed1);
-            chartGroup.getChartLegendView().setTextColor(darkMode ? Color.WHITE : Color.BLACK);
-            chartGroup.getChartLegendView().setSeparatorColor(darkMode ? 0xff1a2330 : 0xfff5f5f5);
         }
     }
 }

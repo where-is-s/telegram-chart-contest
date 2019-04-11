@@ -97,7 +97,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         addView(chartNavigationView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 48)));
 
         chartLegendView = new ChartLegendView(getContext());
-        chartLegendView.setPadding(dp16, dp16, 0, 0);
+        chartLegendView.setPadding(0, 0, 0, dp16);
         addView(chartLegendView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
     

@@ -596,7 +596,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void draw(Canvas canvas) {
-            float fontHeight = getFontHeight(textPaint);
+            float fontHeight = GeneralUtils.getFontHeight(textPaint);
             int viewWidth = getMeasuredWidth();
 
             for (int i = 0; i < lines.size(); ++i) {
@@ -757,7 +757,7 @@ public class ChartView extends View implements RangeListener {
 
         void draw(Canvas canvas) {
             // draw horizontal grid
-            float horzGridTop = topGridOffset + gridHeight + getFontHeight(textPaint);
+            float horzGridTop = topGridOffset + gridHeight + GeneralUtils.getFontHeight(textPaint);
             for (int c = 0; c < lines.size(); ++c) {
                 HorzGridLine line = lines.valueAt(c);
                 long row = lines.keyAt(c);
@@ -1378,16 +1378,11 @@ public class ChartView extends View implements RangeListener {
         updateGridOffsets();
     }
 
-    private static float getFontHeight(Paint textPaint) {
-        Paint.FontMetrics fm = textPaint.getFontMetrics();
-        return fm.descent - fm.ascent;
-    }
-
     private void updateGridOffsets() {
-        topGridOffset = getPaddingTop() + getFontHeight(vertGridPainter.textPaint);
+        topGridOffset = getPaddingTop() + GeneralUtils.getFontHeight(vertGridPainter.textPaint);
         leftGridOffset = getPaddingLeft() + gridLineWidth / 2;
         rightGridOffset = getPaddingRight() + gridLineWidth / 2;
-        bottomGridOffset = getPaddingBottom() + getFontHeight(horzGridPainter.textPaint);
+        bottomGridOffset = getPaddingBottom() + GeneralUtils.getFontHeight(horzGridPainter.textPaint);
         gridWidth = getMeasuredWidth() - leftGridOffset - rightGridOffset;
         gridHeight = getMeasuredHeight() - topGridOffset - bottomGridOffset;
         float valuesCount = (rightBound - leftBound);
@@ -1495,8 +1490,8 @@ public class ChartView extends View implements RangeListener {
             bodyWidth = Math.max(bodyWidth, lineHintWidth);
         }
         calculatedHintWidth = 4 * hintShadowRadius + 2 * hintHorzPadding + bodyWidth;
-        calculatedHintHeight = 4 * hintShadowRadius + hintVertPadding + getFontHeight(hintTitlePaint) + hintVertPadding
-                + (getFontHeight(hintValuePaint) + hintVertPadding) * visibleLineColumnSources.size() + hintVertPadding;
+        calculatedHintHeight = 4 * hintShadowRadius + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding
+                + (GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding) * visibleLineColumnSources.size() + hintVertPadding;
         drawHintBitmap();
         placeHint();
     }
@@ -1522,11 +1517,11 @@ public class ChartView extends View implements RangeListener {
         Canvas canvas = new Canvas(hintBitmap);
         RectF hintRect = new RectF(hintShadowRadius * 2, hintShadowRadius * 2, calculatedHintWidth - hintShadowRadius * 2, calculatedHintHeight - hintShadowRadius * 2);
         canvas.drawRoundRect(hintRect, hintBorderRadius, hintBorderRadius, hintBodyPaint);
-        canvas.drawText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + getFontHeight(hintTitlePaint), hintTitlePaint);
+        canvas.drawText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint), hintTitlePaint);
         float left = hintRect.left + hintHorzPadding;
         float right = hintRect.right - hintHorzPadding;
-        float fontHeight = getFontHeight(hintValuePaint);
-        float currentTop = hintRect.top + hintVertPadding + getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
+        float fontHeight = GeneralUtils.getFontHeight(hintValuePaint);
+        float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
         for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
             ColumnDataSource columnDataSource = visibleLineColumnSources.get(c);
             hintValuePaint.setColor(hintTitlePaint.getColor());

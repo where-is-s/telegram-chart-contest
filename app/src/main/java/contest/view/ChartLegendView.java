@@ -2,14 +2,11 @@ package contest.view;
 
 import android.annotation.TargetApi;
 import android.content.Context;
-import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.util.TypedValue;
-import android.view.View;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.LinearLayout;
 
 import java.util.ArrayList;
@@ -26,17 +23,16 @@ import contest.utils.GeneralUtils;
 public class ChartLegendView extends LinearLayout {
 
     private ChartDataSource chartDataSource;
-    private CompoundButton.OnCheckedChangeListener checkedChangeListener = new CompoundButton.OnCheckedChangeListener() {
+    private LegendCheckBox.Listener checkedChangeListener = new LegendCheckBox.Listener() {
         @Override
-        public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-            chartDataSource.setColumnVisibility((Integer) buttonView.getTag(), isChecked);
+        public void onCheckedChanged(LegendCheckBox checkBox, boolean isChecked) {
+            chartDataSource.setColumnVisibility((Integer) checkBox.getTag(), isChecked);
         }
     };
     private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
         @Override
         public void onSetColumnVisibility(int column, boolean visible) {
-            for (int c = 0; c < getChildCount(); ++c) {
-                CheckBox checkBox = (CheckBox) getChildAt(c * 2);
+            for (LegendCheckBox checkBox: checkBoxes) {
                 if (checkBox.getTag().equals(column)) {
                     checkBox.setChecked(visible);
                     break;
@@ -44,8 +40,7 @@ public class ChartLegendView extends LinearLayout {
             }
         }
     };
-    private List<CheckBox> checkBoxes = new ArrayList<>();
-    private List<View> separators = new ArrayList<>();
+    private List<LegendCheckBox> checkBoxes = new ArrayList<>();
 
     public ChartLegendView(Context context) {
         super(context);
@@ -79,49 +74,67 @@ public class ChartLegendView extends LinearLayout {
     }
 
     private void update() {
-        removeAllViews();
-        separators.clear();
         checkBoxes.clear();
+
         for (int c = 0; c < chartDataSource.getColumnsCount(); c++) {
             ColumnDataSource columnDataSource = chartDataSource.getColumn(c);
             if (!columnDataSource.getType().equals(ColumnType.LINE)) {
                 continue;
             }
 
-            if (getChildCount() > 0) {
-                View separator = new View(getContext());
-                LayoutParams layoutParams = new LayoutParams(LayoutParams.MATCH_PARENT, 2);
-                layoutParams.leftMargin = GeneralUtils.dp2px(getContext(), 40);
-                this.addView(separator, layoutParams);
-                separators.add(separator);
-            }
-
-            CheckBox checkBox = new CheckBox(getContext());
-            checkBox.setText(" " + columnDataSource.getName());
+            LegendCheckBox checkBox = new LegendCheckBox(getContext());
+            checkBox.setText(columnDataSource.getName());
             checkBox.setChecked(chartDataSource.isColumnVisible(c));
             checkBox.setTag(c);
-            checkBox.setOnCheckedChangeListener(checkedChangeListener);
-            checkBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-            checkBox.setPadding(checkBox.getPaddingLeft(), GeneralUtils.dp2px(getContext(), 12), 0, GeneralUtils.dp2px(getContext(), 12));
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                checkBox.setButtonTintList(ColorStateList.valueOf(columnDataSource.getColor()));
-            }
+            checkBox.setListener(checkedChangeListener);
+            checkBox.setTextSize(GeneralUtils.sp2px(getContext(), 16));
+            int dp16 = GeneralUtils.dp2px(getContext(), 16);
+            checkBox.setPadding(dp16, dp16, 0, 0);
+            checkBox.setBackgroundColor(columnDataSource.getColor());
             checkBoxes.add(checkBox);
-            this.addView(checkBox, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         }
-        setSeparatorColor(0xfff0f0f0);
-        setTextColor(Color.BLACK);
+
+        requestLayout();
     }
 
-    public void setTextColor(int color) {
-        for (CheckBox checkBox: checkBoxes) {
-            checkBox.setTextColor(color);
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        if (!changed) {
+            super.onLayout(changed, l, t, r, b);
+            return;
         }
-    }
 
-    public void setSeparatorColor(int color) {
-        for (View separator: separators) {
-            separator.setBackgroundColor(color);
+        int width = r - l;
+
+        removeAllViews();
+        for (LegendCheckBox checkBox: checkBoxes) {
+            ViewParent parent = checkBox.getParent();
+            if (parent == null) {
+                continue;
+            }
+            ((ViewGroup) parent).removeView(checkBox);
         }
+
+        LinearLayout horzLineLayout = null;
+        int currentWidth = 0;
+
+        for (int i = 0; i < checkBoxes.size(); i++) {
+            LegendCheckBox checkBox = checkBoxes.get(i);
+            checkBox.measure(0, 0);
+
+            if (horzLineLayout == null || currentWidth + checkBox.getMeasuredWidth() >= width) {
+                horzLineLayout = new LinearLayout(getContext());
+                horzLineLayout.setOrientation(LinearLayout.HORIZONTAL);
+                horzLineLayout.setGravity(Gravity.START);
+                horzLineLayout.addView(checkBox, new LayoutParams(checkBox.getMeasuredWidth(), checkBox.getMeasuredHeight()));
+                addView(horzLineLayout, new LayoutParams(LayoutParams.MATCH_PARENT, checkBox.getMeasuredHeight()));
+                currentWidth = 0;
+            } else {
+                horzLineLayout.addView(checkBox);
+            }
+            currentWidth += checkBox.getMeasuredWidth();
+        }
+
+        requestLayout();
     }
 }

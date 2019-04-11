@@ -1,6 +1,7 @@
 package contest.utils;
 
 import android.content.Context;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.util.TypedValue;
@@ -28,6 +29,11 @@ public class GeneralUtils {
         } else {
             return getBoldTypeface();
         }
+    }
+
+    public static float getFontHeight(Paint textPaint) {
+        Paint.FontMetrics fm = textPaint.getFontMetrics();
+        return fm.descent - fm.ascent;
     }
 
 }
