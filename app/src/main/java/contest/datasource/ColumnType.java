@@ -5,12 +5,6 @@ package contest.datasource;
  */
 public enum ColumnType {
 
-    X("x"), LINE("line");
-
-    private String name;
-
-    ColumnType(String name) {
-        this.name = name;
-    }
+    X, LINE, BAR_STACK, PERCENTAGE
 
 }

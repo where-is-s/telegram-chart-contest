@@ -9,6 +9,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
@@ -18,6 +19,9 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import contest.datasource.ChartDataSource;
 import contest.datasource.ColumnDataSource;
@@ -60,7 +64,7 @@ public class ChartNavigationView extends View implements RangeListener {
     private float gridStepX;
     private float gridStepY;
 
-    private Bitmap chartLines;
+    private Bitmap currentChartBitmap;
     private Bitmap cornerCoverBitmap;
     private Bitmap leftSelectorEdgeBitmap;
     private Bitmap rightSelectorEdgeBitmap;
@@ -69,7 +73,7 @@ public class ChartNavigationView extends View implements RangeListener {
     private Paint chartLinesPaint;
     private Rect chartLinesSrcRect = new Rect();
     private Rect chartLinesDstRect = new Rect();
-    private Bitmap oldChartLines;
+    private Bitmap oldChartBitmap;
     private Rect oldChartLinesSrcRect = new Rect();
     private Rect oldChartLinesDstRect = new Rect();
     private Paint oldChartLinesPaint;
@@ -99,7 +103,7 @@ public class ChartNavigationView extends View implements RangeListener {
             activeAnimator.setDuration(300);
             float oldTopBound = topBound;
             float oldBottomBound = bottomBound;
-            oldChartLines = chartLines;
+            oldChartBitmap = currentChartBitmap;
             update();
 
             // we need to calculate new lines coordinates in the old top/bottom system
@@ -123,9 +127,9 @@ public class ChartNavigationView extends View implements RangeListener {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     activeAnimator = null;
-                    if (oldChartLines != null) {
-                        oldChartLines.recycle();
-                        oldChartLines = null;
+                    if (oldChartBitmap != null) {
+                        oldChartBitmap.recycle();
+                        oldChartBitmap = null;
                     }
                     invalidate();
                 }
@@ -145,16 +149,16 @@ public class ChartNavigationView extends View implements RangeListener {
 
                     oldChartLinesSrcRect.left = 0;
                     oldChartLinesSrcRect.top = 0;
-                    oldChartLinesSrcRect.right = oldChartLines.getWidth();
-                    oldChartLinesSrcRect.bottom = oldChartLines.getHeight();
+                    oldChartLinesSrcRect.right = oldChartBitmap.getWidth();
+                    oldChartLinesSrcRect.bottom = oldChartBitmap.getHeight();
                     oldChartLinesDstRect.left = (int) leftGridOffset;
                     oldChartLinesDstRect.top = (int) oldChartLinesTopOffset;
                     oldChartLinesDstRect.right = (int) (leftGridOffset + gridWidth);
                     oldChartLinesDstRect.bottom = (int) oldChartLinesBottomOffset;
                     chartLinesSrcRect.left = 0;
                     chartLinesSrcRect.top = 0;
-                    chartLinesSrcRect.right = chartLines.getWidth();
-                    chartLinesSrcRect.bottom = chartLines.getHeight();
+                    chartLinesSrcRect.right = currentChartBitmap.getWidth();
+                    chartLinesSrcRect.bottom = currentChartBitmap.getHeight();
                     chartLinesDstRect.left = (int) leftGridOffset;
                     chartLinesDstRect.top = (int) chartLinesTopOffset;
                     chartLinesDstRect.right = (int) (leftGridOffset + gridWidth);
@@ -412,6 +416,8 @@ public class ChartNavigationView extends View implements RangeListener {
         gridStepY = (topBound - bottomBound) <= 1 ? 0 : gridHeight / (topBound - bottomBound);
     }
 
+    ColumnType type = ColumnType.PERCENTAGE;
+
     public void update() {
         float viewWidth = getMeasuredWidth();
         float viewHeight = getMeasuredHeight();
@@ -423,31 +429,113 @@ public class ChartNavigationView extends View implements RangeListener {
         calculateVerticalBounds();
         calculateGridBounds();
 
-        chartLines = Bitmap.createBitmap((int) gridWidth, (int) gridHeight, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(chartLines);
+        currentChartBitmap = Bitmap.createBitmap((int) gridWidth, (int) gridHeight, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(currentChartBitmap);
 
-        Paint paint = new Paint();
-        paint.setAntiAlias(true);
-        paint.setStrokeWidth(chartLineWidth);
-        paint.setStrokeCap(Paint.Cap.BUTT);
-        paint.setStyle(Paint.Style.STROKE);
-
-        float lines[] = new float[4 * (chartDataSource.getRowsCount() - 1)];
+        List<ColumnDataSource> visibleColumns = new ArrayList<>();
         for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
             ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
             if (columnDataSource.getType().equals(ColumnType.X) || !chartDataSource.isColumnVisible(column)) {
                 continue;
             }
-            paint.setColor(columnDataSource.getColor());
-            long valuesFast[] = columnDataSource.getValues();
-            boolean right = columnDataSource.getYAxis().equals(ChartDataSource.YAxis.RIGHT);
-            for (int row = 0; row < chartDataSource.getRowsCount() - 1; ++row) {
-                lines[4 * row] = gridToScreenX(row) - leftGridOffset;
-                lines[4 * row + 1] = gridToScreenY(right, valuesFast[row]) - topGridOffset;
-                lines[4 * row + 2] = gridToScreenX(row + 1) - leftGridOffset;
-                lines[4 * row + 3] = gridToScreenY(right, valuesFast[row + 1]) - topGridOffset;
+            visibleColumns.add(columnDataSource);
+        }
+
+        if (type.equals(ColumnType.LINE)) {
+            Paint paint = new Paint();
+            paint.setAntiAlias(true);
+            paint.setStrokeWidth(chartLineWidth);
+            paint.setStrokeCap(Paint.Cap.BUTT);
+            paint.setStyle(Paint.Style.STROKE);
+
+            float lines[] = new float[4 * (chartDataSource.getRowsCount() - 1)];
+            for (ColumnDataSource columnDataSource: visibleColumns) {
+                paint.setColor(columnDataSource.getColor());
+                long valuesFast[] = columnDataSource.getValues();
+                boolean right = columnDataSource.getYAxis().equals(ChartDataSource.YAxis.RIGHT);
+                for (int row = 0; row < chartDataSource.getRowsCount() - 1; ++row) {
+                    lines[4 * row] = gridToScreenX(row) - leftGridOffset;
+                    lines[4 * row + 1] = gridToScreenY(right, valuesFast[row]) - topGridOffset;
+                    lines[4 * row + 2] = gridToScreenX(row + 1) - leftGridOffset;
+                    lines[4 * row + 3] = gridToScreenY(right, valuesFast[row + 1]) - topGridOffset;
+                }
+                canvas.drawLines(lines, paint);
             }
-            canvas.drawLines(lines, paint);
+        } else if (type.equals(ColumnType.BAR_STACK)) {
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setStrokeCap(Paint.Cap.BUTT);
+            paint.setStyle(Paint.Style.STROKE);
+
+            float lines[] = new float[4 * (chartDataSource.getRowsCount() - 1)];
+            float gridBottom = gridHeight;
+            float firstX = gridToScreenX(0) + gridStepX / 2 - leftGridOffset;
+            boolean first = true;
+            for (ColumnDataSource columnDataSource: visibleColumns) {
+                paint.setColor(columnDataSource.getColor());
+                long valuesFast[] = columnDataSource.getValues();
+                ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
+                float multiplier = gridStepY * (yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f);
+                float fixedGridStepX = gridStepX - gridStepX * 1 / columnDataSource.getRowsCount();
+                paint.setStrokeWidth(gridStepX + 1f);
+                if (first) {
+                    first = false;
+                    for (int row = 0; row < chartDataSource.getRowsCount() - 1; ++row) {
+                        int offset = 4 * row;
+                        lines[offset] = row == 0 ? firstX : (lines[offset + 2 - 4] + fixedGridStepX);
+                        lines[offset + 1] = gridHeight + bottomBound * gridStepY - multiplier * valuesFast[row];
+                        lines[offset + 2] = lines[offset];
+                        lines[offset + 3] = gridBottom;
+                    }
+                } else {
+                    for (int row = 0; row < chartDataSource.getRowsCount() - 1; ++row) {
+                        int offset = 4 * row;
+                        lines[offset] = lines[offset];
+                        lines[offset + 2] = lines[offset];
+                        lines[offset + 3] = lines[offset + 1];
+                        lines[offset + 1] -= - multiplier * valuesFast[row];
+                    }
+                }
+                canvas.drawLines(lines, paint);
+            }
+        } else if (type.equals(ColumnType.PERCENTAGE)) {
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setStyle(Paint.Style.FILL);
+
+            float gridBottom = gridHeight;
+            float gridToScreenYFast = gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
+
+            Path chartPaths[] = new Path[visibleColumns.size()];
+            long[][] fastValues = new long[visibleColumns.size()][];
+            int i = 0;
+            for (ColumnDataSource column: visibleColumns) {
+                fastValues[i++] = column.getValues();
+            }
+
+            float firstX = gridToScreenX(0) - leftGridOffset;
+            for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                Path currentPath = new Path();
+                chartPaths[chartIdx] = currentPath;
+                chartPaths[chartIdx].moveTo(firstX, gridBottom);
+            }
+
+            for (int row = 0; row < chartDataSource.getRowsCount(); ++row) {
+                float curValue = gridToScreenYFast;
+                float total = 0f;
+                for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                    total += fastValues[chartIdx][row];
+                }
+                for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                    curValue -= fastValues[chartIdx][row] / total * gridHeight;
+                    chartPaths[chartIdx].lineTo(firstX + row * gridStepX, curValue);
+                }
+            }
+
+            for (int chartIdx = fastValues.length - 1; chartIdx >= 0; --chartIdx) {
+                chartPaths[chartIdx].lineTo(gridWidth, gridBottom);
+                chartPaths[chartIdx].close();
+                paint.setColor(visibleColumns.get(chartIdx).getColor());
+                canvas.drawPath(chartPaths[chartIdx], paint);
+            }
         }
 
         invalidate();
@@ -517,22 +605,22 @@ public class ChartNavigationView extends View implements RangeListener {
             return;
         }
 
-        if (oldChartLines != null) {
+        if (oldChartBitmap != null) {
             canvas.save();
             canvas.clipRect(leftGridOffset, topGridOffset, leftGridOffset + gridWidth, topGridOffset + gridHeight);
-            canvas.drawBitmap(oldChartLines, oldChartLinesSrcRect, oldChartLinesDstRect, oldChartLinesPaint);
-            canvas.drawBitmap(chartLines, chartLinesSrcRect, chartLinesDstRect, chartLinesPaint);
+            canvas.drawBitmap(oldChartBitmap, oldChartLinesSrcRect, oldChartLinesDstRect, oldChartLinesPaint);
+            canvas.drawBitmap(currentChartBitmap, chartLinesSrcRect, chartLinesDstRect, chartLinesPaint);
             canvas.restore();
         } else {
             chartLinesSrcRect.left = 0;
             chartLinesSrcRect.top = 0;
-            chartLinesSrcRect.right = chartLines.getWidth();
-            chartLinesSrcRect.bottom = chartLines.getHeight();
+            chartLinesSrcRect.right = currentChartBitmap.getWidth();
+            chartLinesSrcRect.bottom = currentChartBitmap.getHeight();
             chartLinesDstRect.left = (int) leftGridOffset;
             chartLinesDstRect.top = (int) topGridOffset;
-            chartLinesDstRect.right = chartLinesDstRect.left + chartLines.getWidth();
-            chartLinesDstRect.bottom = chartLinesDstRect.top + chartLines.getHeight();
-            canvas.drawBitmap(chartLines, chartLinesSrcRect, chartLinesDstRect, chartLinesPaint);
+            chartLinesDstRect.right = chartLinesDstRect.left + currentChartBitmap.getWidth();
+            chartLinesDstRect.bottom = chartLinesDstRect.top + currentChartBitmap.getHeight();
+            canvas.drawBitmap(currentChartBitmap, chartLinesSrcRect, chartLinesDstRect, chartLinesPaint);
         }
 
         float windowLeft = gridToScreenX(windowLeftRow);

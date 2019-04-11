@@ -206,9 +206,9 @@ public class ChartView extends View implements RangeListener {
             if (selectedRow > -1) {
                 float x = gridToScreenX(selectedRow);
                 float lineTop = topGridOffset;
-                if (hintState == HINT_VISIBLE) {
-                    lineTop = Math.min(lineTop, hintBitmapDstRect.bottom - 2 * hintShadowRadius);
-                }
+//                if (hintState == HINT_VISIBLE) {
+//                    lineTop = Math.min(lineTop, hintBitmapDstRect.bottom - 2 * hintShadowRadius);
+//                }
                 canvas.drawLine(x, lineTop, x, topGridOffset + gridHeight, selectedLinePaint);
             }
 
@@ -276,19 +276,23 @@ public class ChartView extends View implements RangeListener {
             int chartIdx = 0;
             float gridBottom = topGridOffset + gridHeight;
             float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
+            int animatingColumnIdx = visibleLineColumnSources.indexOf(animatingColumn);
             for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
                 long valuesFast[] = columnDataSource.getValues();
                 ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
-                float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
+                float multiplier = gridStepY * (yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f);
                 float firstX = gridToScreenX(lefterBound) + gridStepX / 2 - gridStepX * lefterBound / columnDataSource.getRowsCount();
                 float fixedGridStepX = gridStepX - gridStepX * 1 / columnDataSource.getRowsCount();
                 float currentLines[] = chartLines[chartIdx];
-                chartPaints[chartIdx].setStrokeWidth(gridStepX + 0.5f);
+                chartPaints[chartIdx].setStrokeWidth(gridStepX + 1f);
+                if (chartIdx == animatingColumnIdx) {
+                    multiplier *= animatingColumnOpacity;
+                }
                 if (chartIdx == 0) {
                     for (int row = 0; row <= righterBound - lefterBound; ++row) {
                         int offset = 4 * row;
                         currentLines[offset] = row == 0 ? firstX : (currentLines[offset + 2 - 4] + fixedGridStepX);
-                        currentLines[offset + 1] = gridToScreenYFast - gridStepY * (multiplier * valuesFast[row + lefterBound]);
+                        currentLines[offset + 1] = gridToScreenYFast - multiplier * valuesFast[row + lefterBound];
                         currentLines[offset + 2] = currentLines[offset];
                         currentLines[offset + 3] = gridBottom;
                     }
@@ -296,7 +300,7 @@ public class ChartView extends View implements RangeListener {
                     for (int row = 0; row <= righterBound - lefterBound; ++row) {
                         int offset = 4 * row;
                         currentLines[offset] = chartLines[chartIdx - 1][offset];
-                        currentLines[offset + 1] = chartLines[chartIdx - 1][offset + 1] - gridStepY * (multiplier * valuesFast[row + lefterBound]);
+                        currentLines[offset + 1] = chartLines[chartIdx - 1][offset + 1] - multiplier * valuesFast[row + lefterBound];
                         currentLines[offset + 2] = chartLines[chartIdx - 1][offset];
                         currentLines[offset + 3] = chartLines[chartIdx - 1][offset + 1];
                     }
@@ -313,13 +317,13 @@ public class ChartView extends View implements RangeListener {
                 if (selectedRow > -1) {
                     color = chartPaints[lineIdx].getColor();
                     int backgroundColor = Color.WHITE; // TODO!
-                    chartPaints[lineIdx].setColor(Color.argb(
-                            animatingColumn == visibleLineColumnSources.get(lineIdx) ? (int) (animatingColumnOpacity * 255) : 255,
+                    chartPaints[lineIdx].setColor(Color.rgb(
                             (Color.red(color) + Color.red(backgroundColor)) / 2,
                             (Color.green(color) + Color.green(backgroundColor)) / 2,
                             (Color.blue(color) + Color.blue(backgroundColor)) / 2
                     ));
                 }
+                chartPaints[lineIdx].setAlpha(animatingColumn == visibleLineColumnSources.get(lineIdx) ? (int) (animatingColumnOpacity * 255) : 255);
                 canvas.drawLines(chartLines[lineIdx], 0, chartLinesLength, chartPaints[lineIdx]);
                 if (selectedRow > -1) {
                     chartPaints[lineIdx].setColor(color);
@@ -329,6 +333,7 @@ public class ChartView extends View implements RangeListener {
                 int selectedStartIdx = 4 * (selectedRow - getLefterBound());
                 if (selectedStartIdx >= 0 && selectedStartIdx < chartLinesLength) {
                     for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
+                        chartPaints[lineIdx].setAlpha(animatingColumn == visibleLineColumnSources.get(lineIdx) ? (int) (animatingColumnOpacity * 255) : 255);
                         canvas.drawLines(chartLines[lineIdx], selectedStartIdx, 4, chartPaints[lineIdx]);
                     }
                 }
@@ -346,7 +351,6 @@ public class ChartView extends View implements RangeListener {
         Paint chartPaints[] = new Paint[] {};
         Path chartPaths[] = new Path[] {};
         int chartLinesLength;
-        BarStackPainter barStackPainter = null;
 
         public PercentagePainter() {
             selectedLinePaint = new Paint();
@@ -358,16 +362,6 @@ public class ChartView extends View implements RangeListener {
             int lefterBound = getLefterBound();
             int righterBound = getRighterBound();
             chartLinesLength = 4 * (righterBound - lefterBound);
-            if (righterBound > lefterBound + 1000000) { // TODO
-                if (barStackPainter == null) {
-                    barStackPainter = new BarStackPainter();
-                }
-                barStackPainter.update();
-                return;
-            } else {
-                barStackPainter = null;
-            }
-
             if (chartLinesLength < 0) {
                 return;
             }
@@ -427,10 +421,6 @@ public class ChartView extends View implements RangeListener {
 
         @Override
         public void draw(Canvas canvas) {
-            if (barStackPainter != null) {
-                barStackPainter.draw(canvas);
-                return;
-            }
             for (int p = visibleLineColumnSources.size() - 1; p >= 0; --p) {
                 canvas.drawPath(chartPaths[p], chartPaints[p]);
             }
