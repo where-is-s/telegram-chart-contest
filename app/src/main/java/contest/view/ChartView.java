@@ -22,6 +22,7 @@ import android.view.animation.DecelerateInterpolator;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import contest.datasource.ChartDataSource;
@@ -69,6 +70,7 @@ public class ChartView extends View implements RangeListener {
     private float hintVertPadding;
     private float hintHorzPadding;
     private float hintHorzMargin;
+    private float hintPercentageOffset;
     private boolean clipToPadding;
     private float fingerSize;
     private int animationSpeed;
@@ -99,6 +101,7 @@ public class ChartView extends View implements RangeListener {
     private VertGridPainter vertGridPainter = new VertGridPainter();
     private HorzGridPainter horzGridPainter = new HorzGridPainter();
     private ChartPainter chartPainter = new PercentagePainter();
+    private ColumnType type = ColumnType.PERCENTAGE;
 
     private Bitmap hintBitmap;
     private float calculatedHintWidth;
@@ -115,6 +118,7 @@ public class ChartView extends View implements RangeListener {
 
     private Paint hintTitlePaint;
     private Paint hintBodyPaint;
+    private Paint hintPercentagePaint;
     private Paint hintNamePaint;
     private Paint hintValuePaint;
     private Paint hintCopyPaint;
@@ -126,9 +130,6 @@ public class ChartView extends View implements RangeListener {
     private static abstract class ChartPainter {
         abstract void update();
         abstract void draw(Canvas canvas);
-        abstract boolean isStacking();
-        Float getFixedBottom() { return null; }
-        Float getFixedTop() { return null; }
     }
 
     private class LineChartPainter extends ChartPainter {
@@ -231,11 +232,6 @@ public class ChartView extends View implements RangeListener {
                     }
                 }
             }
-        }
-
-        @Override
-        public boolean isStacking() {
-            return false;
         }
     }
 
@@ -340,11 +336,6 @@ public class ChartView extends View implements RangeListener {
                 }
             }
         }
-
-        @Override
-        public boolean isStacking() {
-            return true;
-        }
     }
 
     private class PercentagePainter extends ChartPainter {
@@ -434,21 +425,6 @@ public class ChartView extends View implements RangeListener {
                 float lineTop = topGridOffset;
                 canvas.drawLine(x, lineTop, x, topGridOffset + gridHeight, selectedLinePaint);
             }
-        }
-
-        @Override
-        public boolean isStacking() {
-            return true;
-        }
-
-        @Override
-        Float getFixedTop() {
-            return 100f;
-        }
-
-        @Override
-        Float getFixedBottom() {
-            return 0f;
         }
     }
 
@@ -967,7 +943,9 @@ public class ChartView extends View implements RangeListener {
         hintBodyPaint.setStyle(Paint.Style.FILL);
         hintNamePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         hintNamePaint.setStyle(Paint.Style.FILL);
-        hintNamePaint.setTextAlign(Paint.Align.LEFT);
+        hintPercentagePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        hintPercentagePaint.setStyle(Paint.Style.FILL);
+        hintPercentagePaint.setTypeface(GeneralUtils.getBoldTypeface());
         hintValuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         hintValuePaint.setStyle(Paint.Style.FILL);
         hintValuePaint.setTypeface(GeneralUtils.getMediumTypeface());
@@ -1065,6 +1043,7 @@ public class ChartView extends View implements RangeListener {
     public void setHintTitleTextColor(int hintTitleTextColor) {
         hintTitlePaint.setColor(hintTitleTextColor);
         hintNamePaint.setColor(hintTitleTextColor);
+        hintPercentagePaint.setColor(hintTitleTextColor);
         updateHint();
     }
 
@@ -1091,6 +1070,7 @@ public class ChartView extends View implements RangeListener {
     public void setHintChartValueTextSize(float hintChartValueTextSize) {
         hintValuePaint.setTextSize(hintChartValueTextSize);
         hintNamePaint.setTextSize(hintChartValueTextSize);
+        hintPercentagePaint.setTextSize(hintChartValueTextSize);
         updateHint();
     }
 
@@ -1277,18 +1257,18 @@ public class ChartView extends View implements RangeListener {
         return (int) Math.min(chartDataSource.getRowsCount() - 1, screenToGridX(getMeasuredWidth() - (clipToPadding ? rightGridOffset : 0)) + 1);
     }
 
+    private boolean isStacking() {
+        return type.equals(ColumnType.BAR_STACK) || type.equals(ColumnType.PERCENTAGE);
+    }
+
     private void calculateVertBounds() {
-        if (chartPainter.getFixedBottom() != null || chartPainter.getFixedTop() != null) {
-            if (chartPainter.getFixedBottom() != null && chartPainter.getFixedTop() != null) {
-                calculatedBottomBound = chartPainter.getFixedBottom();
-                calculatedTopBound = chartPainter.getFixedTop();
-                return;
-            } else {
-                throw new IllegalArgumentException(); // maybe implement later
-            }
+        if (type.equals(ColumnType.PERCENTAGE)) {
+            calculatedBottomBound = 0f;
+            calculatedTopBound = 100f;
+            return;
         }
         ChartUtils.VertBounds vertBounds = ChartUtils.calculateVertBounds(
-                chartDataSource, getLefterBound(), getRighterBound(), chartPainter.isStacking());
+                chartDataSource, getLefterBound(), getRighterBound(), isStacking());
         calculatedTopBound = vertBounds.calculatedTopBound;
         calculatedBottomBound = vertBounds.calculatedBottomBound;
         if (bottomBoundFixed) {
@@ -1412,10 +1392,16 @@ public class ChartView extends View implements RangeListener {
             calculatedHintHeight = 0;
             return;
         }
+
         float bodyWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE));
+        if (type.equals(ColumnType.PERCENTAGE)) {
+            hintPercentageOffset = Math.max(GeneralUtils.dp2px(getContext(), 25), hintPercentagePaint.measureText("99%")) + hintHorzMargin / 3;
+        } else {
+            hintPercentageOffset = 0;
+        }
         for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
-            float lineHintWidth;
-            lineHintWidth = hintNamePaint.measureText(columnDataSource.getName());
+            float lineHintWidth = hintPercentageOffset;
+            lineHintWidth += hintNamePaint.measureText(columnDataSource.getName());
             lineHintWidth += hintHorzMargin;
             lineHintWidth += hintValuePaint.measureText(columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE));
             bodyWidth = Math.max(bodyWidth, lineHintWidth);
@@ -1453,10 +1439,24 @@ public class ChartView extends View implements RangeListener {
         float right = hintRect.right - hintHorzPadding;
         float fontHeight = GeneralUtils.getFontHeight(hintValuePaint);
         float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
-        for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-            ColumnDataSource columnDataSource = visibleLineColumnSources.get(c);
+
+        float total = 0;
+        if (type.equals(ColumnType.PERCENTAGE)) {
+            for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                total += columnDataSource.getValue(selectedRow);
+            }
+        }
+
+        for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
+            float currentLeft = left;
+            if (type.equals(ColumnType.PERCENTAGE)) {
+                hintPercentagePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
+                canvas.drawText(String.format(Locale.getDefault(), "%d%%", (int) (columnDataSource.getValue(selectedRow) / total * 100)), left, currentTop, hintPercentagePaint);
+                currentLeft += hintPercentageOffset;
+            }
+
             hintNamePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
-            canvas.drawText(columnDataSource.getName(), left, currentTop, hintNamePaint);
+            canvas.drawText(columnDataSource.getName(), currentLeft, currentTop, hintNamePaint);
 
             hintValuePaint.setColor(columnDataSource.getColor());
             hintValuePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
@@ -1504,14 +1504,14 @@ public class ChartView extends View implements RangeListener {
 
         float hintTop = topGridOffset;
         if (!clipToPadding) {
-            if (chartPainter.getFixedTop() != null) {
+            if (type.equals(ColumnType.PERCENTAGE)) {
                 //
-            } else if (chartPainter.isStacking()) {
+            } else if (isStacking()) {
                 for (int rowOffset = -3; rowOffset <= 3; ++rowOffset) {
                     if (selectedRow + rowOffset < 0 || selectedRow + rowOffset >= chartDataSource.getRowsCount()) {
                         continue;
                     }
-                    if (chartPainter.isStacking()) {
+                    if (isStacking()) {
                         float stack = 0;
                         for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
                             stack += columnDataSource.getValue(selectedRow + rowOffset);
