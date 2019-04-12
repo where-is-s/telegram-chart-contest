@@ -65,6 +65,14 @@ public class ChartLegendView extends LinearLayout {
 
     private void init() {
         setOrientation(VERTICAL);
+        setPadding(0, 0, 0, 0);
+    }
+
+    @Override
+    public void setPadding(int left, int top, int right, int bottom) {
+        int dp8 = GeneralUtils.dp2px(getContext(), 8);
+        int dp16 = GeneralUtils.dp2px(getContext(), 16);
+        super.setPadding(left + dp8, top + dp8, right + dp16, bottom);
     }
 
     public void setChartDataSource(ChartDataSource chartDataSource) {
@@ -88,8 +96,8 @@ public class ChartLegendView extends LinearLayout {
             checkBox.setTag(c);
             checkBox.setListener(checkedChangeListener);
             checkBox.setTextSize(GeneralUtils.sp2px(getContext(), 16));
-            int dp16 = GeneralUtils.dp2px(getContext(), 16);
-            checkBox.setPadding(dp16, dp16, 0, 0);
+            int dp8 = GeneralUtils.dp2px(getContext(), 8);
+            checkBox.setPadding(dp8, dp8, 0, 0);
             checkBox.setBackgroundColor(columnDataSource.getColor());
             checkBoxes.add(checkBox);
         }

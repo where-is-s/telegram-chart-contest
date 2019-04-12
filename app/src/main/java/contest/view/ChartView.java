@@ -216,6 +216,12 @@ public class ChartView extends View implements RangeListener {
 
             // draw lines
             for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
+                if (visibleLineColumnSources.get(lineIdx) == animatingColumn) {
+                    chartPaints[lineIdx].setAlpha((int) (animatingColumnOpacity * 255));
+                } else {
+                    chartPaints[lineIdx].setAlpha(255);
+                }
+
                 canvas.drawLines(chartLines[lineIdx], 0, chartLinesLength, chartPaints[lineIdx]);
             }
 
@@ -320,7 +326,6 @@ public class ChartView extends View implements RangeListener {
                             (Color.blue(color) + Color.blue(backgroundColor)) / 2
                     ));
                 }
-                chartPaints[lineIdx].setAlpha(animatingColumn == visibleLineColumnSources.get(lineIdx) ? (int) (animatingColumnOpacity * 255) : 255);
                 canvas.drawLines(chartLines[lineIdx], 0, chartLinesLength, chartPaints[lineIdx]);
                 if (selectedRow > -1) {
                     chartPaints[lineIdx].setColor(color);
@@ -330,7 +335,6 @@ public class ChartView extends View implements RangeListener {
                 int selectedStartIdx = 4 * (selectedRow - getLefterBound());
                 if (selectedStartIdx >= 0 && selectedStartIdx < chartLinesLength) {
                     for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
-                        chartPaints[lineIdx].setAlpha(animatingColumn == visibleLineColumnSources.get(lineIdx) ? (int) (animatingColumnOpacity * 255) : 255);
                         canvas.drawLines(chartLines[lineIdx], selectedStartIdx, 4, chartPaints[lineIdx]);
                     }
                 }
@@ -952,7 +956,7 @@ public class ChartView extends View implements RangeListener {
         hintValuePaint.setTextAlign(Paint.Align.RIGHT);
         hintCopyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        setType(ColumnType.BAR_STACK);
+        setType(ColumnType.LINE);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setVertGridLineInterval(GeneralUtils.dp2px(getContext(), 40));
         setHorzGridValueInterval(GeneralUtils.dp2px(getContext(), 20));
