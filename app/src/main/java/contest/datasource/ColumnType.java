@@ -5,6 +5,6 @@ package contest.datasource;
  */
 public enum ColumnType {
 
-    X, LINE, BAR_STACK, PERCENTAGE
+    X, LINE, BAR_STACK, PERCENTAGE, PIE
 
 }

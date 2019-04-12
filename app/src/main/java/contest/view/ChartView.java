@@ -71,6 +71,7 @@ public class ChartView extends View implements RangeListener {
     private float hintHorzPadding;
     private float hintHorzMargin;
     private float hintPercentageOffset;
+    private long hintPieValue;
     private boolean clipToPadding;
     private float fingerSize;
     private int animationSpeed;
@@ -114,7 +115,7 @@ public class ChartView extends View implements RangeListener {
     private float calculatedBottomBound; // target bound for animations, calculated only for left Y axis
     private float rightYAxisMultiplier;
 
-    private int selectedRow = -1;
+    private int selectedItem = -1;
 
     private Paint hintTitlePaint;
     private Paint hintBodyPaint;
@@ -127,12 +128,135 @@ public class ChartView extends View implements RangeListener {
     private int selectedCircleFillColor;
     private float selectedLineWidth;
 
-    private static abstract class ChartPainter {
-        abstract void update();
-        abstract void draw(Canvas canvas);
+    private interface ChartPainter {
+        void update();
+        void draw(Canvas canvas);
+        void selectNearest(float screenX, float screenY, float searchSize);
     }
 
-    private class LineChartPainter extends ChartPainter {
+    private class PieChartPainter implements ChartPainter {
+
+        float chartValues[] = new float[] {};
+        Paint chartPaints[] = new Paint[] {};
+        RectF drawRect = new RectF();
+        Paint valuePaint;
+        float minTextSizeSp = 16;
+        float maxTextSizeSp = 36;
+        float suggestedHintX;
+        float suggestedHintY;
+
+        PieChartPainter() {
+            valuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            valuePaint.setStyle(Paint.Style.FILL);
+            valuePaint.setColor(Color.WHITE);
+            valuePaint.setTextAlign(Paint.Align.CENTER);
+            valuePaint.setTypeface(GeneralUtils.getMediumTypeface());
+        }
+
+        @Override
+        public void update() {
+            int lefterBound = getLefterBound();
+            int righterBound = getRighterBound();
+            if (chartValues.length < visibleLineColumnSources.size()) {
+                chartValues = new float[visibleLineColumnSources.size()];
+                chartPaints = new Paint[visibleLineColumnSources.size()];
+            }
+
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                Paint paint = chartPaints[c];
+                if (paint == null) {
+                    paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    paint.setStyle(Paint.Style.FILL);
+                }
+                paint.setColor(visibleLineColumnSources.get(c).getColor());
+                chartPaints[c] = paint;
+            }
+
+            int lineIdx = 0;
+            float totalValue = 0;
+            for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
+                long valuesFast[] = columnDataSource.getValues();
+                float multiplier = 1f;
+                if (columnDataSource == animatingColumn) {
+                    multiplier = animatingColumnOpacity;
+                }
+                for (int row = 0; row < righterBound - lefterBound; ++row) {
+                    chartValues[lineIdx] += valuesFast[row + lefterBound] * multiplier;
+                    totalValue += valuesFast[row + lefterBound] * multiplier;
+                }
+                lineIdx++;
+            }
+
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                chartValues[c] /= totalValue;
+                chartValues[c] = Math.max(0f, Math.min(1f, chartValues[c]));
+            }
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            float centerX = leftGridOffset + gridWidth / 2;
+            float centerY = topGridOffset + gridHeight / 2;
+            float baseRadius = Math.min(centerX, centerY) * 0.8f;
+
+            float currentAngle = 180;
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                float sweepAngle = 360 * chartValues[c];
+                if (sweepAngle < 0.001f) {
+                    continue;
+                }
+                int percentage = (int) (100 * chartValues[c]);
+                drawRect.left = centerX - baseRadius;
+                drawRect.top = centerY - baseRadius;
+                drawRect.right = centerX + baseRadius;
+                drawRect.bottom = centerY + baseRadius;
+                float midAngle = (float) Math.toRadians(currentAngle + sweepAngle / 2);
+                float valueDistance = baseRadius * Math.max(0.5f, 0.8f - 0.3f * sweepAngle / 180);
+                if (c == selectedItem) {
+                    float dp8 = GeneralUtils.dp2px(getContext(), 8);
+                    valueDistance += dp8;
+                    drawRect.offset((float) (dp8 * Math.cos(midAngle)), (float) (dp8 * Math.sin(midAngle)));
+                }
+                canvas.drawArc(drawRect, currentAngle, sweepAngle + (c == selectedItem || c == selectedItem - 1 ? 0f : 1f), true, chartPaints[c]);
+                if (sweepAngle > 2) {
+                    float fontHeight = GeneralUtils.sp2px(getContext(), minTextSizeSp + (maxTextSizeSp - minTextSizeSp) * (sweepAngle - 5) / 360);
+                    valuePaint.setTextSize(fontHeight);
+                    float valueX = (float) (centerX + valueDistance * Math.cos(midAngle));
+                    float valueY = (float) (centerY + valueDistance * Math.sin(midAngle));
+                    String text = String.format(Locale.getDefault(), "%d%%", percentage);
+                    Rect rect = new Rect();
+                    valuePaint.getTextBounds(text, 0, text.length(), rect);
+                    canvas.drawText(text, valueX, valueY - rect.centerY(), valuePaint);
+                }
+                currentAngle += sweepAngle;
+            }
+        }
+
+        @Override
+        public void selectNearest(float screenX, float screenY, float searchSize) {
+            float centerX = leftGridOffset + gridWidth / 2;
+            float centerY = topGridOffset + gridHeight / 2;
+            if (screenY == centerY) {
+                return;
+            }
+            float touchDegrees = (float) Math.toDegrees(Math.atan2(screenY - centerY, screenX - centerX)) + 360f;
+            float hintRadius = Math.min(centerX, centerY) * 0.9f;
+
+            float currentAngle = 180;
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                float sweepAngle = 360 * chartValues[c];
+                if (touchDegrees > currentAngle && touchDegrees < currentAngle + sweepAngle) {
+                    suggestedHintX = (float) (centerX + hintRadius * Math.cos(Math.toRadians(currentAngle + sweepAngle / 2)));
+                    suggestedHintY = (float) (centerY + hintRadius * Math.sin(Math.toRadians(currentAngle + sweepAngle / 2)));
+                    setSelectedItem(c);
+                    break;
+                }
+                currentAngle += sweepAngle;
+            }
+        }
+    }
+
+    private class LineChartPainter implements ChartPainter {
         Paint chartPaints[] = new Paint[] {};
         float chartLines[][] = new float[][] {};
         int chartLinesLength;
@@ -205,8 +329,8 @@ public class ChartView extends View implements RangeListener {
             selectedLinePaint.setStrokeWidth(selectedLineWidth);
 
             // draw vertical line for selected row
-            if (selectedRow > -1) {
-                float x = gridToScreenX(selectedRow);
+            if (selectedItem > -1) {
+                float x = gridToScreenX(selectedItem);
                 float lineTop = topGridOffset;
 //                if (hintState == HINT_VISIBLE) {
 //                    lineTop = Math.min(lineTop, hintBitmapDstRect.bottom - 2 * hintShadowRadius);
@@ -226,12 +350,12 @@ public class ChartView extends View implements RangeListener {
             }
 
             // draw selected circles
-            if (selectedRow > -1) {
-                float x = gridToScreenX(selectedRow);
+            if (selectedItem > -1) {
+                float x = gridToScreenX(selectedItem);
                 if (x >= 0 && x <= getMeasuredWidth()) {
                     int lineIdx = 0;
                     for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
-                        float y = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedRow));
+                        float y = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedItem));
                         selectedCircleFillPaint.setAlpha(chartPaints[lineIdx].getAlpha());
                         canvas.drawCircle(x, y, selectedCircleRadius, selectedCircleFillPaint);
                         canvas.drawCircle(x, y, selectedCircleRadius, chartPaints[lineIdx++]);
@@ -239,9 +363,34 @@ public class ChartView extends View implements RangeListener {
                 }
             }
         }
+
+        @Override
+        public void selectNearest(float screenX, float screenY, float searchSize) {
+            float minGridX = screenToGridX(screenX - searchSize / 2);
+            float maxGridX = screenToGridX(screenX + searchSize / 2);
+            int minGridRoundX = (int) Math.min(Math.max(Math.round(minGridX), Math.ceil(leftBound)), Math.floor(rightBound));
+            int maxGridRoundX = (int) Math.min(Math.max(Math.round(maxGridX), Math.ceil(leftBound)), Math.floor(rightBound));
+            float bestScreenDistance = Float.MAX_VALUE;
+            int bestRow = Math.round((minGridRoundX + maxGridRoundX) * 0.5f); // middle is default
+            for (int row = minGridRoundX; row <= maxGridRoundX; ++row) {
+                for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
+                    ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
+                    if (!columnDataSource.getType().equals(ColumnType.LINE)) {
+                        continue;
+                    }
+                    long value = columnDataSource.getValue(row);
+                    float screenDistance = sqr(gridToScreenY(columnDataSource.getYAxis(), value) - screenY) + sqr(gridToScreenX(row) - screenX);
+                    if (screenDistance < bestScreenDistance) {
+                        bestScreenDistance = screenDistance;
+                        bestRow = row;
+                    }
+                }
+            }
+            setSelectedItem(bestRow);
+        }
     }
 
-    private class BarStackPainter extends ChartPainter {
+    private class BarStackPainter implements ChartPainter {
         Paint chartPaints[] = new Paint[] {};
         float chartLines[][] = new float[][] {};
         int chartLinesLength;
@@ -317,7 +466,7 @@ public class ChartView extends View implements RangeListener {
             // draw lines
             for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
                 int color = 0;
-                if (selectedRow > -1) {
+                if (selectedItem > -1) {
                     color = chartPaints[lineIdx].getColor();
                     int backgroundColor = Color.WHITE; // TODO!
                     chartPaints[lineIdx].setColor(Color.rgb(
@@ -327,12 +476,12 @@ public class ChartView extends View implements RangeListener {
                     ));
                 }
                 canvas.drawLines(chartLines[lineIdx], 0, chartLinesLength, chartPaints[lineIdx]);
-                if (selectedRow > -1) {
+                if (selectedItem > -1) {
                     chartPaints[lineIdx].setColor(color);
                 }
             }
-            if (selectedRow > -1) {
-                int selectedStartIdx = 4 * (selectedRow - getLefterBound());
+            if (selectedItem > -1) {
+                int selectedStartIdx = 4 * (selectedItem - getLefterBound());
                 if (selectedStartIdx >= 0 && selectedStartIdx < chartLinesLength) {
                     for (int lineIdx = 0; lineIdx < visibleLineColumnSources.size(); ++lineIdx) {
                         canvas.drawLines(chartLines[lineIdx], selectedStartIdx, 4, chartPaints[lineIdx]);
@@ -340,9 +489,17 @@ public class ChartView extends View implements RangeListener {
                 }
             }
         }
+
+        @Override
+        public void selectNearest(float screenX, float screenY, float searchSize) {
+            int row = (int) screenToGridX(screenX);
+            if (row >= 0 && row < chartDataSource.getRowsCount()) {
+                setSelectedItem(row); // TODO: select nearest visible?
+            }
+        }
     }
 
-    private class PercentagePainter extends ChartPainter {
+    private class PercentagePainter implements ChartPainter {
         Paint selectedLinePaint;
         Paint chartPaints[] = new Paint[] {};
         Path chartPaths[] = new Path[] {};
@@ -422,12 +579,20 @@ public class ChartView extends View implements RangeListener {
             }
 
             // draw vertical line for selected row
-            if (selectedRow > -1) {
+            if (selectedItem > -1) {
                 selectedLinePaint.setColor(selectedLineColor);
                 selectedLinePaint.setStrokeWidth(selectedLineWidth);
-                float x = gridToScreenX(selectedRow);
+                float x = gridToScreenX(selectedItem);
                 float lineTop = topGridOffset;
                 canvas.drawLine(x, lineTop, x, topGridOffset + gridHeight, selectedLinePaint);
+            }
+        }
+
+        @Override
+        public void selectNearest(float screenX, float screenY, float searchSize) {
+            int row = (int) screenToGridX(screenX);
+            if (row >= 0 && row < chartDataSource.getRowsCount()) {
+                setSelectedItem(row);
             }
         }
     }
@@ -520,6 +685,10 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
+            if (type.equals(ColumnType.PIE)) {
+                return;
+            }
+
             int linesCount = Math.max(2, (int) Math.floor(gridHeight / vertGridLineInterval));
             valueSpacing = (float) Math.floor((calculatedTopBound - calculatedBottomBound) / (linesCount - 1));
             valueSpacing = gridRound(valueSpacing);
@@ -546,6 +715,10 @@ public class ChartView extends View implements RangeListener {
         }
 
         void draw(Canvas canvas) {
+            if (type.equals(ColumnType.PIE)) {
+                return;
+            }
+
             float fontHeight = GeneralUtils.getFontHeight(textPaint);
             int viewWidth = getMeasuredWidth();
 
@@ -663,6 +836,10 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
+            if (type.equals(ColumnType.PIE)) {
+                return;
+            }
+
             if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
                 return;
             }
@@ -706,6 +883,10 @@ public class ChartView extends View implements RangeListener {
         }
 
         void draw(Canvas canvas) {
+            if (type.equals(ColumnType.PIE)) {
+                return;
+            }
+
             // draw horizontal grid
             float horzGridTop = topGridOffset + gridHeight + GeneralUtils.getFontHeight(textPaint);
             for (int c = 0; c < lines.size(); ++c) {
@@ -735,6 +916,9 @@ public class ChartView extends View implements RangeListener {
             if (!gesturesEnabled) {
                 return false;
             }
+            if (type.equals(ColumnType.PIE)) {
+                return false;
+            }
             float x = detector.getFocusX() / getMeasuredWidth();
             float center = leftBound + (rightBound - leftBound) * x;
             float width = (rightBound - leftBound) / (detector.getScaleFactor() * detector.getScaleFactor());
@@ -748,6 +932,9 @@ public class ChartView extends View implements RangeListener {
         @Override
         public boolean onScaleBegin(ScaleGestureDetector detector) {
             if (!gesturesEnabled) {
+                return false;
+            }
+            if (type.equals(ColumnType.PIE)) {
                 return false;
             }
             oldFocusX = detector.getFocusX();
@@ -786,7 +973,7 @@ public class ChartView extends View implements RangeListener {
                     && event.getX() < hintBitmapDstRect.right
                     && event.getY() > hintBitmapDstRect.top
                     && event.getY() < hintBitmapDstRect.bottom) {
-                setSelectedRow(-1);
+                setSelectedItem(-1);
                 hintState = HINT_DISAPPEARING;
                 startHintAnimation(
                         hintBitmapDstRect.left,
@@ -795,16 +982,19 @@ public class ChartView extends View implements RangeListener {
                         hintBitmapDstRect.bottom
                 );
             } else {
-                selectNearest(event.getX(), event.getY(), fingerSize);
+                chartPainter.selectNearest(event.getX(), event.getY(), fingerSize);
             }
             return true;
         }
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            if (type.equals(ColumnType.PIE)) {
+                return false;
+            }
             getParent().requestDisallowInterceptTouchEvent(true);
             if (!gesturesEnabled) {
-                selectNearest(e2.getX(), e2.getY(), fingerSize / 2);
+                chartPainter.selectNearest(e2.getX(), e2.getY(), 0);
             } else {
                 float newLeftBound = Math.max(0, leftBound + screenToGridX(distanceX) - screenToGridX(0));
                 float newRightBound = newLeftBound + rightBound - leftBound;
@@ -824,6 +1014,9 @@ public class ChartView extends View implements RangeListener {
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
             if (!gesturesEnabled) {
+                return false;
+            }
+            if (type.equals(ColumnType.PIE)) {
                 return false;
             }
             float normalVelocity = (float) (Math.pow(Math.abs(velocityX), 0.8f) * Math.signum(velocityX));
@@ -856,7 +1049,7 @@ public class ChartView extends View implements RangeListener {
 
     private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
         @Override
-        public void onSetColumnVisibility(int column, boolean visible) {
+        public void onSetColumnVisibility(int column, final boolean visible) {
             final ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
             animatingColumn = columnDataSource;
             float savedTopBound = topBound;
@@ -888,6 +1081,9 @@ public class ChartView extends View implements RangeListener {
                 @Override
                 public void onCancel() {
                     chartAnimator = null;
+                    if (type.equals(ColumnType.PIE) && selectedItem > -1 && visibleLineColumnSources.get(selectedItem) == animatingColumn) {
+                        selectedItem = -1;
+                    }
                     animatingColumn = null;
                     updateColumns(); // invisible column will finally be removed from visibleLineColumnSources
                     updateHint();
@@ -956,7 +1152,7 @@ public class ChartView extends View implements RangeListener {
         hintValuePaint.setTextAlign(Paint.Align.RIGHT);
         hintCopyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        setType(ColumnType.LINE);
+        setType(ColumnType.PIE);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setVertGridLineInterval(GeneralUtils.dp2px(getContext(), 40));
         setHorzGridValueInterval(GeneralUtils.dp2px(getContext(), 20));
@@ -976,7 +1172,7 @@ public class ChartView extends View implements RangeListener {
         setClipToPadding(false);
         setFingerSize(GeneralUtils.dp2px(getContext(), 24));
         setAnimationSpeed(300);
-        setHintShadowColor(0x20000000);
+        setHintShadowColor(0x30000000);
         setHintShadowRadius(GeneralUtils.dp2px(getContext(), 2));
         setHintBorderRadius(GeneralUtils.dp2px(getContext(), 4));
         setGesturesEnabled(true);
@@ -1128,6 +1324,9 @@ public class ChartView extends View implements RangeListener {
             case PERCENTAGE:
                 chartPainter = new PercentagePainter();
                 break;
+            case PIE:
+                chartPainter = new PieChartPainter();
+                break;
         }
         updateChart(true);
     }
@@ -1157,30 +1356,6 @@ public class ChartView extends View implements RangeListener {
 
     private float sqr(float val) {
         return val * val;
-    }
-
-    private void selectNearest(float screenX, float screenY, float searchSize) {
-        float minGridX = screenToGridX(screenX - searchSize / 2);
-        float maxGridX = screenToGridX(screenX + searchSize / 2);
-        int minGridRoundX = (int) Math.min(Math.max(Math.round(minGridX), Math.ceil(leftBound)), Math.floor(rightBound));
-        int maxGridRoundX = (int) Math.min(Math.max(Math.round(maxGridX), Math.ceil(leftBound)), Math.floor(rightBound));
-        float bestScreenDistance = Float.MAX_VALUE;
-        int bestRow = Math.round((minGridRoundX + maxGridRoundX) * 0.5f); // middle is default
-        for (int row = minGridRoundX; row <= maxGridRoundX; ++row) {
-            for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
-                ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
-                if (!columnDataSource.getType().equals(ColumnType.LINE)) {
-                    continue;
-                }
-                long value = columnDataSource.getValue(row);
-                float screenDistance = sqr(gridToScreenY(columnDataSource.getYAxis(), value) - screenY) + sqr(gridToScreenX(row) - screenX);
-                if (screenDistance < bestScreenDistance) {
-                    bestScreenDistance = screenDistance;
-                    bestRow = row;
-                }
-            }
-        }
-        setSelectedRow(bestRow);
     }
 
     public void setLeftBound(float bound) {
@@ -1391,8 +1566,8 @@ public class ChartView extends View implements RangeListener {
         return value;
     }
 
-    public void setSelectedRow(int selectedRow) {
-        this.selectedRow = selectedRow;
+    public void setSelectedItem(int selectedItem) {
+        this.selectedItem = selectedItem;
         updateHint();
         invalidate();
     }
@@ -1409,28 +1584,52 @@ public class ChartView extends View implements RangeListener {
     }
 
     private void updateHint() {
-        if (selectedRow < 0 || xColumnSource == null) {
+        if (selectedItem < 0 || xColumnSource == null) {
+            if (type.equals(ColumnType.PIE) && hintState != HINT_INVISIBLE) {
+                placeHint();
+                return;
+            }
             calculatedHintWidth = 0;
             calculatedHintHeight = 0;
             return;
         }
 
-        float bodyWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE));
-        if (type.equals(ColumnType.PERCENTAGE)) {
-            hintPercentageOffset = Math.max(GeneralUtils.dp2px(getContext(), 25), hintPercentagePaint.measureText("99%")) + hintHorzMargin / 3;
+        float bodyWidth;
+        float bodyHeight;
+        if (type.equals(ColumnType.PIE)) {
+            ColumnDataSource selectedColumn = visibleLineColumnSources.get(selectedItem);
+            bodyWidth = hintNamePaint.measureText(selectedColumn.getName());
+            int lefterBound = getLefterBound();
+            int righterBound = getRighterBound();
+            long sum = 0;
+            long valuesFast[] = selectedColumn.getValues();
+            for (int r = lefterBound; r < righterBound; ++r) {
+                sum += valuesFast[r];
+            }
+            hintPieValue = sum;
+            bodyWidth += hintValuePaint.measureText(selectedColumn.formatValue(hintPieValue, ValueFormatType.HINT_VALUE));
+            bodyWidth += 2 * hintHorzMargin;
+            bodyWidth = Math.min(bodyWidth, GeneralUtils.dp2px(getContext(), 120));
+            bodyHeight = GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding;
         } else {
-            hintPercentageOffset = 0;
-        }
-        for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
-            float lineHintWidth = hintPercentageOffset;
-            lineHintWidth += hintNamePaint.measureText(columnDataSource.getName());
-            lineHintWidth += hintHorzMargin;
-            lineHintWidth += hintValuePaint.measureText(columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE));
-            bodyWidth = Math.max(bodyWidth, lineHintWidth);
+            bodyWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedItem), ValueFormatType.HINT_TITLE));
+            if (type.equals(ColumnType.PERCENTAGE)) {
+                hintPercentageOffset = Math.max(GeneralUtils.dp2px(getContext(), 25), hintPercentagePaint.measureText("99%")) + hintHorzMargin / 3;
+            } else {
+                hintPercentageOffset = 0;
+            }
+            for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                float lineHintWidth = hintPercentageOffset;
+                lineHintWidth += hintNamePaint.measureText(columnDataSource.getName());
+                lineHintWidth += hintHorzMargin;
+                lineHintWidth += hintValuePaint.measureText(columnDataSource.formatValue(columnDataSource.getValue(selectedItem), ValueFormatType.HINT_VALUE));
+                bodyWidth = Math.max(bodyWidth, lineHintWidth);
+            }
+            bodyHeight = GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding
+                    + (GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding) * visibleLineColumnSources.size();
         }
         calculatedHintWidth = 4 * hintShadowRadius + 2 * hintHorzPadding + bodyWidth;
-        calculatedHintHeight = 4 * hintShadowRadius + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding
-                + (GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding) * visibleLineColumnSources.size() + hintVertPadding;
+        calculatedHintHeight = 4 * hintShadowRadius + 2 * hintVertPadding + bodyHeight;
         drawHintBitmap();
         placeHint();
     }
@@ -1441,7 +1640,7 @@ public class ChartView extends View implements RangeListener {
             hintBitmap = null;
         }
 
-        if (selectedRow < 0) {
+        if (selectedItem < 0) {
             return;
         }
 
@@ -1456,100 +1655,122 @@ public class ChartView extends View implements RangeListener {
         Canvas canvas = new Canvas(hintBitmap);
         RectF hintRect = new RectF(hintShadowRadius * 2, hintShadowRadius * 2, calculatedHintWidth - hintShadowRadius * 2, calculatedHintHeight - hintShadowRadius * 2);
         canvas.drawRoundRect(hintRect, hintBorderRadius, hintBorderRadius, hintBodyPaint);
-        canvas.drawText(xColumnSource.formatValue(xColumnSource.getValue(selectedRow), ValueFormatType.HINT_TITLE), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint), hintTitlePaint);
-        float left = hintRect.left + hintHorzPadding;
-        float right = hintRect.right - hintHorzPadding;
-        float fontHeight = GeneralUtils.getFontHeight(hintValuePaint);
-        float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
 
-        float total = 0;
-        if (type.equals(ColumnType.PERCENTAGE)) {
-            for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
-                total += columnDataSource.getValue(selectedRow);
-            }
-        }
+        if (type.equals(ColumnType.PIE)) {
+            ColumnDataSource selectedColumn = visibleLineColumnSources.get(selectedItem);
+            canvas.drawText(selectedColumn.getName(), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintNamePaint), hintNamePaint);
+            float right = hintRect.right - hintHorzPadding;
+            hintValuePaint.setColor(selectedColumn.getColor());
+            canvas.drawText(selectedColumn.formatValue(hintPieValue, ValueFormatType.HINT_VALUE), right, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintValuePaint), hintValuePaint);
+        } else {
+            canvas.drawText(xColumnSource.formatValue(xColumnSource.getValue(selectedItem), ValueFormatType.HINT_TITLE), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint), hintTitlePaint);
+            float left = hintRect.left + hintHorzPadding;
+            float right = hintRect.right - hintHorzPadding;
+            float fontHeight = GeneralUtils.getFontHeight(hintValuePaint);
+            float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
 
-        for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
-            float currentLeft = left;
+            float total = 0;
             if (type.equals(ColumnType.PERCENTAGE)) {
-                hintPercentagePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
-                canvas.drawText(String.format(Locale.getDefault(), "%d%%", (int) (columnDataSource.getValue(selectedRow) / total * 100)), left, currentTop, hintPercentagePaint);
-                currentLeft += hintPercentageOffset;
+                for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                    total += columnDataSource.getValue(selectedItem);
+                }
             }
 
-            hintNamePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
-            canvas.drawText(columnDataSource.getName(), currentLeft, currentTop, hintNamePaint);
+            for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                float currentLeft = left;
+                if (type.equals(ColumnType.PERCENTAGE)) {
+                    hintPercentagePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
+                    canvas.drawText(String.format(Locale.getDefault(), "%d%%", (int) (columnDataSource.getValue(selectedItem) / total * 100)), left, currentTop, hintPercentagePaint);
+                    currentLeft += hintPercentageOffset;
+                }
 
-            hintValuePaint.setColor(columnDataSource.getColor());
-            hintValuePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
-            String value = columnDataSource.formatValue(columnDataSource.getValue(selectedRow), ValueFormatType.HINT_VALUE);
-            canvas.drawText(value, right, currentTop, hintValuePaint);
+                hintNamePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
+                canvas.drawText(columnDataSource.getName(), currentLeft, currentTop, hintNamePaint);
 
-            currentTop += fontHeight + hintVertPadding;
+                hintValuePaint.setColor(columnDataSource.getColor());
+                hintValuePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
+                String value = columnDataSource.formatValue(columnDataSource.getValue(selectedItem), ValueFormatType.HINT_VALUE);
+                canvas.drawText(value, right, currentTop, hintValuePaint);
+
+                currentTop += fontHeight + hintVertPadding;
+            }
         }
 
         invalidate();
     }
 
     private void placeHint() {
-        if (selectedRow < 0) {
+        if (selectedItem < 0 && !type.equals(ColumnType.PIE)) {
             return;
         }
         if (hintState == HINT_DISAPPEARING || hintState == HINT_APPEARING) { // already animating to appear/disappear
             return;
         }
-        float x = gridToScreenX(selectedRow);
-        boolean shouldBeVisible;
-        if (clipToPadding) {
-            shouldBeVisible = x > leftGridOffset && x < leftGridOffset + gridWidth;
-        } else {
-            shouldBeVisible = x > 0 && x < getMeasuredWidth();
-        }
-        if (shouldBeVisible && hintState == HINT_INVISIBLE) {
-            hintState = HINT_APPEARING;
-        }
-        if (!shouldBeVisible && hintState == HINT_VISIBLE) {
-            hintState = HINT_DISAPPEARING;
-        }
+        float hintLeft;
+        float hintRight;
+        float hintTop;
+        float hintBottom;
 
         final float hintWidth = hintBitmap.getWidth();
         final float hintHeight = hintBitmap.getHeight();
 
-        float screenPercentage = (gridToScreenX(selectedRow) - leftGridOffset) / gridWidth;
-        float hintHorzOffset = screenPercentage > 0.5f ? (- hintWidth - hintHorzPadding) : hintHorzPadding;
+        if (type.equals(ColumnType.PIE)) {
+            hintLeft = ((PieChartPainter) chartPainter).suggestedHintX - hintWidth / 2;
+            hintTop = ((PieChartPainter) chartPainter).suggestedHintY - hintHeight / 2;
+            if (selectedItem > -1 && hintState == HINT_INVISIBLE) {
+                hintState = HINT_APPEARING;
+            }
+            if (selectedItem == -1 && hintState == HINT_VISIBLE) {
+                hintState = HINT_DISAPPEARING;
+            }
+        } else {
+            float x = gridToScreenX(selectedItem);
+            boolean shouldBeVisible;
+            if (clipToPadding) {
+                shouldBeVisible = x > leftGridOffset && x < leftGridOffset + gridWidth;
+            } else {
+                shouldBeVisible = x > 0 && x < getMeasuredWidth();
+            }
+            if (shouldBeVisible && hintState == HINT_INVISIBLE) {
+                hintState = HINT_APPEARING;
+            }
+            if (!shouldBeVisible && hintState == HINT_VISIBLE) {
+                hintState = HINT_DISAPPEARING;
+            }
 
-        float hintLeft = x + hintHorzOffset;
+            float screenPercentage = (gridToScreenX(selectedItem) - leftGridOffset) / gridWidth;
+            float hintHorzOffset = screenPercentage > 0.5f ? (- hintWidth - hintHorzPadding) : hintHorzPadding;
+
+            hintLeft = x + hintHorzOffset;
+            hintTop = topGridOffset;
+        }
+
         hintLeft = Math.max(hintLeft, clipToPadding ? leftGridOffset : 2 * hintShadowRadius);
-        float hintRight = hintLeft + hintWidth;
+        hintRight = hintLeft + hintWidth;
         hintRight = Math.min(hintRight, getMeasuredWidth() - (clipToPadding ? rightGridOffset : 2 * hintShadowRadius));
         hintLeft = hintRight - hintWidth;
 
-        float hintTop = topGridOffset;
-        if (!clipToPadding) {
-            if (type.equals(ColumnType.PERCENTAGE)) {
-                //
-            } else if (isStacking()) {
-                for (int rowOffset = -3; rowOffset <= 3; ++rowOffset) {
-                    if (selectedRow + rowOffset < 0 || selectedRow + rowOffset >= chartDataSource.getRowsCount()) {
-                        continue;
+        if (!clipToPadding && isStacking()) {
+            for (int rowOffset = -3; rowOffset <= 3; ++rowOffset) {
+                if (selectedItem + rowOffset < 0 || selectedItem + rowOffset >= chartDataSource.getRowsCount()) {
+                    continue;
+                }
+                if (isStacking()) {
+                    float stack = 0;
+                    for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                        stack += columnDataSource.getValue(selectedItem + rowOffset);
                     }
-                    if (isStacking()) {
-                        float stack = 0;
-                        for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
-                            stack += columnDataSource.getValue(selectedRow + rowOffset);
-                        }
-                        float y = gridToScreenY(ChartDataSource.YAxis.NONE, stack);
-                        hintTop = Math.max(hintShadowRadius, Math.min(hintTop, y - hintHeight - 2 * hintShadowRadius));
-                    } else {
-                        for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
-                            float y = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedRow + rowOffset));
-                            hintTop = Math.max(hintShadowRadius, Math.min(hintTop, y - hintHeight - 2 * hintShadowRadius));
-                        }
+                    float valueY = gridToScreenY(ChartDataSource.YAxis.NONE, stack);
+                    hintTop = Math.max(hintShadowRadius, Math.min(hintTop, valueY - hintHeight - 2 * hintShadowRadius));
+                } else {
+                    for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
+                        float valueY = gridToScreenY(columnDataSource.getYAxis(), columnDataSource.getValue(selectedItem + rowOffset));
+                        hintTop = Math.max(hintShadowRadius, Math.min(hintTop, valueY - hintHeight - 2 * hintShadowRadius));
                     }
                 }
             }
         }
-        float hintBottom = hintTop + hintHeight;
+        hintBottom = hintTop + hintHeight;
 
         if (hintBitmapDstRect.left != (int) hintLeft || hintBitmapDstRect.top != (int) hintTop
                 || hintState == HINT_APPEARING || hintState == HINT_DISAPPEARING) {
@@ -1595,7 +1816,7 @@ public class ChartView extends View implements RangeListener {
             public void onEnd() {
                 if (disappearing) {
                     hintState = HINT_INVISIBLE;
-                    setSelectedRow(-1);
+                    setSelectedItem(-1);
                 } else if (appearing) {
                     hintState = HINT_VISIBLE;
                 }
@@ -1647,15 +1868,15 @@ public class ChartView extends View implements RangeListener {
         // draw main chart
         chartPainter.draw(canvas);
 
-        // draw vertical grid
+        // draw vertical grid if needed
         vertGridPainter.draw(canvas);
 
-        // draw horizontal grid
+        // draw horizontal grid if needed
         horzGridPainter.draw(canvas);
 
         // draw hint
         if (hintState != HINT_INVISIBLE) {
-            canvas.drawBitmap(hintBitmap, hintBitmapSrcRect, hintBitmapDstRect, hintCopyPaint);
+            canvas.drawBitmap(hintBitmap, hintBitmapDstRect.left, hintBitmapDstRect.top, hintCopyPaint);
         }
 
         if (clipToPadding) {

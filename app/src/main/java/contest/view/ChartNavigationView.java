@@ -170,7 +170,7 @@ public class ChartNavigationView extends View implements RangeListener {
 
                     int alpha = activeAnimator.getIntValue(ANIMATE_ALPHA);
                     chartBitmapPaint.setAlpha(alpha);
-                    if (chartView.getType().equals(ColumnType.PERCENTAGE)) {
+                    if (chartView.getType().equals(ColumnType.PERCENTAGE) || chartView.getType().equals(ColumnType.PIE)) {
                         oldChartBitmapPaint.setAlpha(255);
                     } else {
                         oldChartBitmapPaint.setAlpha(255 - alpha);
@@ -262,7 +262,7 @@ public class ChartNavigationView extends View implements RangeListener {
     }
 
     private void calculateVerticalBounds() {
-        if (chartView.getType().equals(ColumnType.PERCENTAGE)) {
+        if (chartView.getType().equals(ColumnType.PERCENTAGE) || chartView.getType().equals(ColumnType.PIE)) {
             bottomBound = 0f;
             topBound = 100f;
             return;
@@ -489,7 +489,7 @@ public class ChartNavigationView extends View implements RangeListener {
                 }
                 canvas.drawLines(lines, paint);
             }
-        } else if (chartView.getType().equals(ColumnType.PERCENTAGE)) {
+        } else if (chartView.getType().equals(ColumnType.PERCENTAGE) || chartView.getType().equals(ColumnType.PIE)) {
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStyle(Paint.Style.FILL);
 
