@@ -100,8 +100,8 @@ public class ChartView extends View implements RangeListener {
 
     private VertGridPainter vertGridPainter = new VertGridPainter();
     private HorzGridPainter horzGridPainter = new HorzGridPainter();
-    private ChartPainter chartPainter = new PercentagePainter();
-    private ColumnType type = ColumnType.PERCENTAGE;
+    private ChartPainter chartPainter;
+    private ColumnType type;
 
     private Bitmap hintBitmap;
     private float calculatedHintWidth;
@@ -951,6 +951,8 @@ public class ChartView extends View implements RangeListener {
         hintValuePaint.setTypeface(GeneralUtils.getMediumTypeface());
         hintValuePaint.setTextAlign(Paint.Align.RIGHT);
         hintCopyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        setType(ColumnType.BAR_STACK);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setVertGridLineInterval(GeneralUtils.dp2px(getContext(), 40));
         setHorzGridValueInterval(GeneralUtils.dp2px(getContext(), 20));
@@ -1108,6 +1110,22 @@ public class ChartView extends View implements RangeListener {
 
     public void setGesturesEnabled(boolean gesturesEnabled) {
         this.gesturesEnabled = gesturesEnabled;
+    }
+
+    public void setType(ColumnType type) {
+        this.type = type;
+        switch (type) {
+            case LINE:
+                chartPainter = new LineChartPainter();
+                break;
+            case BAR_STACK:
+                chartPainter = new BarStackPainter();
+                break;
+            case PERCENTAGE:
+                chartPainter = new PercentagePainter();
+                break;
+        }
+        updateChart(true);
     }
 
     @Override
@@ -1705,4 +1723,7 @@ public class ChartView extends View implements RangeListener {
         invalidate(); // redraw with high quality
     }
 
+    public ColumnType getType() {
+        return type;
+    }
 }

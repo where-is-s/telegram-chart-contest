@@ -96,7 +96,7 @@ public class ChartNavigationView extends View implements RangeListener {
 
     private SimpleAnimator activeAnimator;
 
-    private RangeListener listener;
+    private ChartView chartView;
     private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
 
         @Override
@@ -170,7 +170,7 @@ public class ChartNavigationView extends View implements RangeListener {
 
                     int alpha = activeAnimator.getIntValue(ANIMATE_ALPHA);
                     chartBitmapPaint.setAlpha(alpha);
-                    if (type.equals(ColumnType.PERCENTAGE)) {
+                    if (chartView.getType().equals(ColumnType.PERCENTAGE)) {
                         oldChartBitmapPaint.setAlpha(255);
                     } else {
                         oldChartBitmapPaint.setAlpha(255 - alpha);
@@ -262,12 +262,12 @@ public class ChartNavigationView extends View implements RangeListener {
     }
 
     private void calculateVerticalBounds() {
-        if (type.equals(ColumnType.PERCENTAGE)) {
+        if (chartView.getType().equals(ColumnType.PERCENTAGE)) {
             bottomBound = 0f;
             topBound = 100f;
             return;
         }
-        ChartUtils.VertBounds vertBounds = ChartUtils.calculateVertBounds(chartDataSource, 0, chartDataSource.getRowsCount() - 1, type.equals(ColumnType.BAR_STACK));
+        ChartUtils.VertBounds vertBounds = ChartUtils.calculateVertBounds(chartDataSource, 0, chartDataSource.getRowsCount() - 1, chartView.getType().equals(ColumnType.BAR_STACK));
         if (!topBoundFixed) {
             topBound = vertBounds.calculatedTopBound;
         }
@@ -281,11 +281,11 @@ public class ChartNavigationView extends View implements RangeListener {
             return;
         }
         this.dragMode = dragMode;
-        if (listener != null) {
+        if (chartView != null) {
             if (dragMode != DRAG_NONE) {
-                listener.onStartDragging();
+                chartView.onStartDragging();
             } else {
-                listener.onStopDragging();
+                chartView.onStopDragging();
             }
         }
     }
@@ -345,8 +345,8 @@ public class ChartNavigationView extends View implements RangeListener {
                     }
                 }
                 invalidate();
-                if (listener != null) {
-                    listener.onRangeSelected(windowLeftRow, windowRightRow);
+                if (chartView != null) {
+                    chartView.onRangeSelected(windowLeftRow, windowRightRow);
                 }
                 return true;
             case MotionEvent.ACTION_UP:
@@ -364,8 +364,8 @@ public class ChartNavigationView extends View implements RangeListener {
         windowLeftRow = Math.max(0, windowRightRow - 5 * windowSizeMinRows);
         rightYAxisMultiplier = chartDataSource.getRightYAxisMultiplier();
         chartDataSource.addListener(chartDataSourceListener);
-        if (listener != null) {
-            listener.onRangeSelected(windowLeftRow, windowRightRow);
+        if (chartView != null) {
+            chartView.onRangeSelected(windowLeftRow, windowRightRow);
         }
         update();
     }
@@ -410,8 +410,6 @@ public class ChartNavigationView extends View implements RangeListener {
         gridStepY = (topBound - bottomBound) <= 1 ? 0 : gridHeight / (topBound - bottomBound);
     }
 
-    ColumnType type = ColumnType.PERCENTAGE;
-
     public void update() {
         float viewWidth = getMeasuredWidth();
         float viewHeight = getMeasuredHeight();
@@ -435,7 +433,7 @@ public class ChartNavigationView extends View implements RangeListener {
             visibleColumns.add(columnDataSource);
         }
 
-        if (type.equals(ColumnType.LINE)) {
+        if (chartView.getType().equals(ColumnType.LINE)) {
             Paint paint = new Paint();
             paint.setAntiAlias(true);
             paint.setStrokeWidth(chartLineWidth);
@@ -455,7 +453,7 @@ public class ChartNavigationView extends View implements RangeListener {
                 }
                 canvas.drawLines(lines, paint);
             }
-        } else if (type.equals(ColumnType.BAR_STACK)) {
+        } else if (chartView.getType().equals(ColumnType.BAR_STACK)) {
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStrokeCap(Paint.Cap.BUTT);
             paint.setStyle(Paint.Style.STROKE);
@@ -491,7 +489,7 @@ public class ChartNavigationView extends View implements RangeListener {
                 }
                 canvas.drawLines(lines, paint);
             }
-        } else if (type.equals(ColumnType.PERCENTAGE)) {
+        } else if (chartView.getType().equals(ColumnType.PERCENTAGE)) {
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStyle(Paint.Style.FILL);
 
@@ -540,10 +538,10 @@ public class ChartNavigationView extends View implements RangeListener {
         update();
     }
 
-    public void setChartView(RangeListener listener) {
-        this.listener = listener;
-        if (listener != null) {
-            listener.onRangeSelected(windowLeftRow, windowRightRow);
+    public void setChartView(ChartView chartView) {
+        this.chartView = chartView;
+        if (chartView != null) {
+            chartView.onRangeSelected(windowLeftRow, windowRightRow);
         }
     }
 
