@@ -1,8 +1,5 @@
 package contest.view;
 
-import android.animation.Animator;
-import android.animation.PropertyValuesHolder;
-import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -26,8 +23,9 @@ import java.util.List;
 import contest.datasource.ChartDataSource;
 import contest.datasource.ColumnDataSource;
 import contest.datasource.ColumnType;
-import contest.utils.EmptyAnimatorListener;
+import contest.utils.ChartUtils;
 import contest.utils.GeneralUtils;
+import contest.utils.SimpleAnimator;
 
 /**
  * Created by Alex K on 19/03/2019.
@@ -38,6 +36,12 @@ public class ChartNavigationView extends View implements RangeListener {
     private static final int DRAG_LEFT = 1;
     private static final int DRAG_RIGHT = 2;
     private static final int DRAG_WINDOW = 3;
+
+    private static final int ANIMATE_CHART_BITMAP_TOP = 1;
+    private static final int ANIMATE_CHART_BITMAP_BOTTOM = 2;
+    private static final int ANIMATE_ALPHA = 3;
+    private static final int ANIMATE_OLD_CHART_BITMAP_TOP = 4;
+    private static final int ANIMATE_OLD_CHART_BITMAP_BOTTOM = 5;
 
     private ChartDataSource chartDataSource;
 
@@ -70,13 +74,13 @@ public class ChartNavigationView extends View implements RangeListener {
     private Bitmap rightSelectorEdgeBitmap;
 
     // animation helpers
-    private Paint chartLinesPaint;
-    private Rect chartLinesSrcRect = new Rect();
-    private Rect chartLinesDstRect = new Rect();
+    private Paint chartBitmapPaint;
+    private Rect chartBitmapSrcRect = new Rect();
+    private Rect chartBitmapDstRect = new Rect();
     private Bitmap oldChartBitmap;
-    private Rect oldChartLinesSrcRect = new Rect();
-    private Rect oldChartLinesDstRect = new Rect();
-    private Paint oldChartLinesPaint;
+    private Rect oldChartBitmapSrcRect = new Rect();
+    private Rect oldChartBitmapDstRect = new Rect();
+    private Paint oldChartBitmapPaint;
 
     private float windowLeftRow;
     private float windowRightRow;
@@ -90,16 +94,17 @@ public class ChartNavigationView extends View implements RangeListener {
     private float touchBeginY;
     private boolean mightCancelDrag;
 
-    private ValueAnimator activeAnimator;
+    private SimpleAnimator activeAnimator;
 
     private RangeListener listener;
     private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
+
         @Override
         public void onSetColumnVisibility(int column, boolean visible) {
             if (activeAnimator != null) {
                 activeAnimator.cancel();
             }
-            activeAnimator = new ValueAnimator();
+            activeAnimator = new SimpleAnimator();
             activeAnimator.setDuration(300);
             float oldTopBound = topBound;
             float oldBottomBound = bottomBound;
@@ -112,20 +117,20 @@ public class ChartNavigationView extends View implements RangeListener {
             topBound = oldTopBound;
             bottomBound = oldBottomBound;
             calculateGridBounds();
-            PropertyValuesHolder chartLinesTop = PropertyValuesHolder.ofFloat("chartLinesTop", gridToScreenY(false, newTopBound), topGridOffset);
-            PropertyValuesHolder chartLinesBottom = PropertyValuesHolder.ofFloat("chartLinesBottom", gridToScreenY(false, newBottomBound), topGridOffset + gridHeight);
+            activeAnimator.addValue(ANIMATE_CHART_BITMAP_TOP, gridToScreenY(false, newTopBound), topGridOffset);
+            activeAnimator.addValue(ANIMATE_CHART_BITMAP_BOTTOM, gridToScreenY(false, newBottomBound), topGridOffset + gridHeight);
             topBound = newTopBound;
             bottomBound = newBottomBound;
             calculateGridBounds();
 
-            PropertyValuesHolder alphaProperty = PropertyValuesHolder.ofInt("alpha", 0, 255);
-            PropertyValuesHolder oldChartLinesTop = PropertyValuesHolder.ofFloat("oldChartLinesTop", topGridOffset, gridToScreenY(false, oldTopBound));
-            PropertyValuesHolder oldChartLinesBottom = PropertyValuesHolder.ofFloat("oldChartLinesBottom", topGridOffset + gridHeight, gridToScreenY(false, oldBottomBound));
-            activeAnimator.setValues(alphaProperty, chartLinesTop, chartLinesBottom, oldChartLinesTop, oldChartLinesBottom);
+            activeAnimator.addValue(ANIMATE_ALPHA, 0, 255);
+            activeAnimator.addValue(ANIMATE_OLD_CHART_BITMAP_TOP, topGridOffset, gridToScreenY(false, oldTopBound));
+            activeAnimator.addValue(ANIMATE_OLD_CHART_BITMAP_BOTTOM, topGridOffset + gridHeight, gridToScreenY(false, oldBottomBound));
             activeAnimator.setInterpolator(new DecelerateInterpolator());
-            activeAnimator.addListener(new EmptyAnimatorListener() {
+            activeAnimator.setListener(new SimpleAnimator.Listener() {
+
                 @Override
-                public void onAnimationEnd(Animator animation) {
+                public void onEnd() {
                     activeAnimator = null;
                     if (oldChartBitmap != null) {
                         oldChartBitmap.recycle();
@@ -135,38 +140,41 @@ public class ChartNavigationView extends View implements RangeListener {
                 }
 
                 @Override
-                public void onAnimationCancel(Animator animation) {
-                    onAnimationEnd(animation);
+                public void onCancel() {
+                    onEnd();
                 }
-            });
-            activeAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+
                 @Override
-                public void onAnimationUpdate(ValueAnimator animator) {
-                    float oldChartLinesTopOffset = (float) animator.getAnimatedValue("oldChartLinesTop");
-                    float oldChartLinesBottomOffset = (float) animator.getAnimatedValue("oldChartLinesBottom");
-                    float chartLinesTopOffset = (float) animator.getAnimatedValue("chartLinesTop");
-                    float chartLinesBottomOffset = (float) animator.getAnimatedValue("chartLinesBottom");
+                public void onUpdate() {
+                    float oldChartLinesTopOffset = activeAnimator.getFloatValue(ANIMATE_OLD_CHART_BITMAP_TOP);
+                    float oldChartLinesBottomOffset = activeAnimator.getFloatValue(ANIMATE_OLD_CHART_BITMAP_BOTTOM);
+                    float chartLinesTopOffset = activeAnimator.getFloatValue(ANIMATE_CHART_BITMAP_TOP);
+                    float chartLinesBottomOffset = activeAnimator.getFloatValue(ANIMATE_CHART_BITMAP_BOTTOM);
 
-                    oldChartLinesSrcRect.left = 0;
-                    oldChartLinesSrcRect.top = 0;
-                    oldChartLinesSrcRect.right = oldChartBitmap.getWidth();
-                    oldChartLinesSrcRect.bottom = oldChartBitmap.getHeight();
-                    oldChartLinesDstRect.left = (int) leftGridOffset;
-                    oldChartLinesDstRect.top = (int) oldChartLinesTopOffset;
-                    oldChartLinesDstRect.right = (int) (leftGridOffset + gridWidth);
-                    oldChartLinesDstRect.bottom = (int) oldChartLinesBottomOffset;
-                    chartLinesSrcRect.left = 0;
-                    chartLinesSrcRect.top = 0;
-                    chartLinesSrcRect.right = currentChartBitmap.getWidth();
-                    chartLinesSrcRect.bottom = currentChartBitmap.getHeight();
-                    chartLinesDstRect.left = (int) leftGridOffset;
-                    chartLinesDstRect.top = (int) chartLinesTopOffset;
-                    chartLinesDstRect.right = (int) (leftGridOffset + gridWidth);
-                    chartLinesDstRect.bottom = (int) chartLinesBottomOffset;
+                    oldChartBitmapSrcRect.left = 0;
+                    oldChartBitmapSrcRect.top = 0;
+                    oldChartBitmapSrcRect.right = oldChartBitmap.getWidth();
+                    oldChartBitmapSrcRect.bottom = oldChartBitmap.getHeight();
+                    oldChartBitmapDstRect.left = (int) leftGridOffset;
+                    oldChartBitmapDstRect.top = (int) oldChartLinesTopOffset;
+                    oldChartBitmapDstRect.right = (int) (leftGridOffset + gridWidth);
+                    oldChartBitmapDstRect.bottom = (int) oldChartLinesBottomOffset;
+                    chartBitmapSrcRect.left = 0;
+                    chartBitmapSrcRect.top = 0;
+                    chartBitmapSrcRect.right = currentChartBitmap.getWidth();
+                    chartBitmapSrcRect.bottom = currentChartBitmap.getHeight();
+                    chartBitmapDstRect.left = (int) leftGridOffset;
+                    chartBitmapDstRect.top = (int) chartLinesTopOffset;
+                    chartBitmapDstRect.right = (int) (leftGridOffset + gridWidth);
+                    chartBitmapDstRect.bottom = (int) chartLinesBottomOffset;
 
-                    int alpha = (int) animator.getAnimatedValue("alpha");
-                    chartLinesPaint.setAlpha(alpha);
-                    oldChartLinesPaint.setAlpha(255 - alpha);
+                    int alpha = activeAnimator.getIntValue(ANIMATE_ALPHA);
+                    chartBitmapPaint.setAlpha(alpha);
+                    if (type.equals(ColumnType.PERCENTAGE)) {
+                        oldChartBitmapPaint.setAlpha(255);
+                    } else {
+                        oldChartBitmapPaint.setAlpha(255 - alpha);
+                    }
                     invalidate();
                 }
             });
@@ -200,12 +208,12 @@ public class ChartNavigationView extends View implements RangeListener {
         backgroundPaint.setStyle(Paint.Style.FILL);
         windowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         windowPaint.setStyle(Paint.Style.FILL);
-        chartLinesPaint = new Paint();
-        chartLinesPaint.setAntiAlias(true);
-        chartLinesPaint.setAlpha(255);
-        oldChartLinesPaint = new Paint();
-        oldChartLinesPaint.setAntiAlias(true);
-        oldChartLinesPaint.setAlpha(0);
+        chartBitmapPaint = new Paint();
+        chartBitmapPaint.setAntiAlias(true);
+        chartBitmapPaint.setAlpha(255);
+        oldChartBitmapPaint = new Paint();
+        oldChartBitmapPaint.setAntiAlias(true);
+        oldChartBitmapPaint.setAlpha(0);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setWindowVerticalFrameSize(GeneralUtils.dp2px(getContext(), 10));
         setWindowHorizontalFrameSize(GeneralUtils.dp2px(getContext(), 1.5f));
@@ -254,31 +262,17 @@ public class ChartNavigationView extends View implements RangeListener {
     }
 
     private void calculateVerticalBounds() {
-        boolean first = true;
-        for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
-            ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
-            if (columnDataSource.getType().equals(ColumnType.X)) {
-                continue;
-            }
-            if (!chartDataSource.isColumnVisible(column)) {
-                continue;
-            }
-            long valuesFast[] = columnDataSource.getValues();
-            ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
-            float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
-
-            for (int row = 0; row < columnDataSource.getRowsCount(); ++row) {
-                long value = valuesFast[row];
-                value *= multiplier;
-
-                if (!bottomBoundFixed && (first || bottomBound > value)) {
-                    bottomBound = value;
-                }
-                if (!topBoundFixed && (first || topBound < value)) {
-                    topBound = value;
-                }
-                first = false;
-            }
+        if (type.equals(ColumnType.PERCENTAGE)) {
+            bottomBound = 0f;
+            topBound = 100f;
+            return;
+        }
+        ChartUtils.VertBounds vertBounds = ChartUtils.calculateVertBounds(chartDataSource, 0, chartDataSource.getRowsCount() - 1, type.equals(ColumnType.BAR_STACK));
+        if (!topBoundFixed) {
+            topBound = vertBounds.calculatedTopBound;
+        }
+        if (!bottomBoundFixed) {
+            bottomBound = vertBounds.calculatedBottomBound;
         }
     }
 
@@ -573,16 +567,16 @@ public class ChartNavigationView extends View implements RangeListener {
         RectF rect = new RectF(leftGridOffset, topGridOffset, leftGridOffset + gridWidth, topGridOffset + gridHeight);
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint);
 
-        leftSelectorEdgeBitmap = Bitmap.createBitmap((int) windowVerticalFrameSize, (int) gridHeight, Bitmap.Config.ARGB_8888);
-        rightSelectorEdgeBitmap = Bitmap.createBitmap((int) windowVerticalFrameSize, (int) gridHeight, Bitmap.Config.ARGB_8888);
+        leftSelectorEdgeBitmap = Bitmap.createBitmap((int) windowVerticalFrameSize, (int) (gridHeight + 2 * windowHorizontalFrameSize), Bitmap.Config.ARGB_8888);
+        rightSelectorEdgeBitmap = Bitmap.createBitmap((int) windowVerticalFrameSize, (int) (gridHeight + 2 * windowHorizontalFrameSize), Bitmap.Config.ARGB_8888);
         Canvas leftCanvas = new Canvas(leftSelectorEdgeBitmap);
         Canvas rightCanvas = new Canvas(rightSelectorEdgeBitmap);
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(windowPaint.getColor());
-        rect = new RectF(0, 0, windowVerticalFrameSize * 2, gridHeight);
+        rect = new RectF(0, 0, windowVerticalFrameSize * 2, leftSelectorEdgeBitmap.getHeight());
         leftCanvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint);
-        rect = new RectF(-windowVerticalFrameSize, 0, windowVerticalFrameSize, gridHeight);
+        rect = new RectF(-windowVerticalFrameSize, 0, windowVerticalFrameSize, rightSelectorEdgeBitmap.getHeight());
         rightCanvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint);
 
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -608,19 +602,19 @@ public class ChartNavigationView extends View implements RangeListener {
         if (oldChartBitmap != null) {
             canvas.save();
             canvas.clipRect(leftGridOffset, topGridOffset, leftGridOffset + gridWidth, topGridOffset + gridHeight);
-            canvas.drawBitmap(oldChartBitmap, oldChartLinesSrcRect, oldChartLinesDstRect, oldChartLinesPaint);
-            canvas.drawBitmap(currentChartBitmap, chartLinesSrcRect, chartLinesDstRect, chartLinesPaint);
+            canvas.drawBitmap(oldChartBitmap, oldChartBitmapSrcRect, oldChartBitmapDstRect, oldChartBitmapPaint);
+            canvas.drawBitmap(currentChartBitmap, chartBitmapSrcRect, chartBitmapDstRect, chartBitmapPaint);
             canvas.restore();
         } else {
-            chartLinesSrcRect.left = 0;
-            chartLinesSrcRect.top = 0;
-            chartLinesSrcRect.right = currentChartBitmap.getWidth();
-            chartLinesSrcRect.bottom = currentChartBitmap.getHeight();
-            chartLinesDstRect.left = (int) leftGridOffset;
-            chartLinesDstRect.top = (int) topGridOffset;
-            chartLinesDstRect.right = chartLinesDstRect.left + currentChartBitmap.getWidth();
-            chartLinesDstRect.bottom = chartLinesDstRect.top + currentChartBitmap.getHeight();
-            canvas.drawBitmap(currentChartBitmap, chartLinesSrcRect, chartLinesDstRect, chartLinesPaint);
+            chartBitmapSrcRect.left = 0;
+            chartBitmapSrcRect.top = 0;
+            chartBitmapSrcRect.right = currentChartBitmap.getWidth();
+            chartBitmapSrcRect.bottom = currentChartBitmap.getHeight();
+            chartBitmapDstRect.left = (int) leftGridOffset;
+            chartBitmapDstRect.top = (int) topGridOffset;
+            chartBitmapDstRect.right = chartBitmapDstRect.left + currentChartBitmap.getWidth();
+            chartBitmapDstRect.bottom = chartBitmapDstRect.top + currentChartBitmap.getHeight();
+            canvas.drawBitmap(currentChartBitmap, chartBitmapSrcRect, chartBitmapDstRect, chartBitmapPaint);
         }
 
         float windowLeft = gridToScreenX(windowLeftRow);
@@ -641,12 +635,14 @@ public class ChartNavigationView extends View implements RangeListener {
 //        canvas.drawRect(windowLeft, top, windowLeft + windowVerticalFrameSize, bottom, windowPaint);
 //        canvas.drawRect(windowRight - windowVerticalFrameSize, top, windowRight, bottom, windowPaint);
 
+        canvas.drawBitmap(cornerCoverBitmap, 0, 0, null);
+
+        top -= windowHorizontalFrameSize;
+        bottom += windowHorizontalFrameSize;
         canvas.drawBitmap(leftSelectorEdgeBitmap, windowLeft, top, null);
         canvas.drawBitmap(rightSelectorEdgeBitmap, windowRight - windowVerticalFrameSize, top, null);
         canvas.drawRect(windowLeft + windowVerticalFrameSize, top, windowRight - windowVerticalFrameSize, top + windowHorizontalFrameSize, windowPaint);
         canvas.drawRect(windowLeft + windowVerticalFrameSize, bottom - windowHorizontalFrameSize, windowRight - windowVerticalFrameSize, bottom, windowPaint);
-
-        canvas.drawBitmap(cornerCoverBitmap, 0, 0, null);
     }
 
     @Override

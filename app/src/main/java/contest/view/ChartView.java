@@ -28,6 +28,7 @@ import contest.datasource.ChartDataSource;
 import contest.datasource.ColumnDataSource;
 import contest.datasource.ColumnType;
 import contest.datasource.ValueFormatType;
+import contest.utils.ChartUtils;
 import contest.utils.GeneralUtils;
 import contest.utils.SimpleAnimator;
 
@@ -1286,52 +1287,10 @@ public class ChartView extends View implements RangeListener {
                 throw new IllegalArgumentException(); // maybe implement later
             }
         }
-        int lefterBound = getLefterBound();
-        int righterBound = getRighterBound();
-        boolean stacking = chartPainter.isStacking();
-        calculatedBottomBound = stacking ? 0 : Float.MAX_VALUE;
-        calculatedTopBound = stacking ? 0 : Float.MIN_VALUE;
-        List<long[]> fastValuesList = new ArrayList<>();
-        ArrayList<Float> multiplierList = new ArrayList<>();
-        for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
-            ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
-            if (columnDataSource.getType().equals(ColumnType.X)
-                    || !chartDataSource.isColumnVisible(column)) {
-                continue;
-            }
-            fastValuesList.add(columnDataSource.getValues());
-            ChartDataSource.YAxis yAxis = columnDataSource.getYAxis();
-            float multiplier = yAxis.equals(ChartDataSource.YAxis.RIGHT) ? rightYAxisMultiplier : 1f;
-            multiplierList.add(multiplier);
-        }
-        long[][] fastValues = new long[fastValuesList.size()][];
-        for (int i = 0; i < fastValuesList.size(); ++i) {
-            fastValues[i] = fastValuesList.get(i);
-        }
-        Float multipliers[] = multiplierList.toArray(new Float[multiplierList.size()]);
-        for (int row = lefterBound; row <= righterBound; ++row) {
-            float aggValue = 0;
-            for (int c = 0; c < fastValues.length; ++c) {
-                long value = fastValues[c][row];
-                value *= multipliers[c];
-                if (stacking) {
-                    aggValue += value;
-                    continue;
-                }
-                if (calculatedBottomBound > value) {
-                    calculatedBottomBound = value;
-                }
-                if (calculatedTopBound < value) {
-                    calculatedTopBound = value;
-                }
-            }
-            if (stacking && calculatedTopBound < aggValue) {
-                calculatedTopBound = aggValue;
-            }
-        }
-        if (stacking) {
-            calculatedBottomBound = 0;
-        }
+        ChartUtils.VertBounds vertBounds = ChartUtils.calculateVertBounds(
+                chartDataSource, getLefterBound(), getRighterBound(), chartPainter.isStacking());
+        calculatedTopBound = vertBounds.calculatedTopBound;
+        calculatedBottomBound = vertBounds.calculatedBottomBound;
         if (bottomBoundFixed) {
             calculatedBottomBound = bottomBound;
         } else {
