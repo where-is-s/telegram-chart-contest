@@ -106,7 +106,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         chartView.setChartDataSource(chartDataSource);
         chartNavigationView.setChartDataSource(chartDataSource);
         chartLegendView.setChartDataSource(chartDataSource);
-        float bottomBound = chartDataSource.getChartType().equals(ChartType.LINE) ? Float.NaN : 0f;
+        float bottomBound = chartDataSource.getChartType().equals(ChartType.LINE) ? ChartView.NO_BOUND : 0f;
         chartView.setBottomBound(bottomBound);
         chartNavigationView.setBottomBound(bottomBound);
     }

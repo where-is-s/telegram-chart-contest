@@ -12,7 +12,6 @@ public class IntegerColumnDataSource extends BaseColumnDataSource {
     private final ChartDataSource.YAxis yAxis;
     private final DecimalFormat formatter;
 
-
     public IntegerColumnDataSource(ChartDataSource.YAxis yAxis, ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);
         this.yAxis = yAxis;

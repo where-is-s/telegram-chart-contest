@@ -22,7 +22,7 @@ public class SimpleChartDataSource implements ChartDataSource {
         this.chartType = chartType;
         this.doubleAxis = doubleAxis;
         if (doubleAxis) {
-            rightYAxisMultiplier = 20f;
+            rightYAxisMultiplier = 20f; // TODO: calculate dynamically
         }
         addColumns(columns);
     }
@@ -118,7 +118,7 @@ public class SimpleChartDataSource implements ChartDataSource {
         listeners.remove(listener);
     }
 
-    private void updateRowsCount() {
+    public void updateRowsCount() {
         int maxRows = 0;
         for (ColumnDataSource column: columns) {
             maxRows = Math.max(maxRows, column.getRowsCount());

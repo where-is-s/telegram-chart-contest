@@ -9,6 +9,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -34,11 +35,17 @@ import contest.datasource.ValueFormatType;
 import contest.utils.ChartUtils;
 import contest.utils.GeneralUtils;
 import contest.utils.SimpleAnimator;
+import telegram.contest.chart.R;
 
 /**
  * Created by Alex K on 19/03/2019.
  */
 public class ChartView extends View implements RangeListener {
+
+    interface DetailsListener {
+        boolean isDetailsAvailable(int row);
+        void onDetailsClick(int row);
+    }
 
     public static final float NO_BOUND = Float.NaN;
 
@@ -111,6 +118,7 @@ public class ChartView extends View implements RangeListener {
     Rect hintBitmapSrcRect = new Rect();
     Rect hintBitmapDstRect = new Rect();
     int hintState = HINT_INVISIBLE;
+    Bitmap hintDetailsBitmap;
 
     float calculatedTopBound; // target bound for animations, calculated only for left Y axis
     float calculatedBottomBound; // target bound for animations, calculated only for left Y axis
@@ -1023,14 +1031,18 @@ public class ChartView extends View implements RangeListener {
                     && event.getX() < hintBitmapDstRect.right
                     && event.getY() > hintBitmapDstRect.top
                     && event.getY() < hintBitmapDstRect.bottom) {
-                setSelectedItem(-1);
-                hintState = HINT_DISAPPEARING;
-                startHintAnimation(
-                        hintBitmapDstRect.left,
-                        hintBitmapDstRect.top,
-                        hintBitmapDstRect.right,
-                        hintBitmapDstRect.bottom
-                );
+                if (detailsListener != null && detailsListener.isDetailsAvailable(selectedItem)) {
+                    detailsListener.onDetailsClick(selectedItem);
+                } else {
+                    setSelectedItem(-1);
+                    hintState = HINT_DISAPPEARING;
+                    startHintAnimation(
+                            hintBitmapDstRect.left,
+                            hintBitmapDstRect.top,
+                            hintBitmapDstRect.right,
+                            hintBitmapDstRect.bottom
+                    );
+                }
             } else {
                 chartPainter.selectNearest(event.getX(), event.getY(), fingerSize);
             }
@@ -1096,6 +1108,16 @@ public class ChartView extends View implements RangeListener {
     });
 
     Set<RangeListener> rangeListeners = new HashSet<>();
+    DetailsListener detailsListener = new DetailsListener() {
+        @Override
+        public boolean isDetailsAvailable(int row) {
+            return false;
+        }
+
+        @Override
+        public void onDetailsClick(int row) {
+        }
+    };
 
     ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
         @Override
@@ -1199,6 +1221,7 @@ public class ChartView extends View implements RangeListener {
         hintValuePaint.setTypeface(GeneralUtils.getMediumTypeface());
         hintValuePaint.setTextAlign(Paint.Align.RIGHT);
         hintCopyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        hintDetailsBitmap = ((BitmapDrawable) getResources().getDrawable(R.drawable.details)).getBitmap();
 
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setVertGridLineInterval(GeneralUtils.dp2px(getContext(), 40));
@@ -1678,6 +1701,9 @@ public class ChartView extends View implements RangeListener {
             bodyHeight = GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding;
         } else {
             bodyWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedItem), ValueFormatType.HINT_TITLE));
+            if (detailsListener != null && detailsListener.isDetailsAvailable(selectedItem)) {
+                bodyWidth += hintHorzMargin + hintDetailsBitmap.getWidth();
+            }
             if (isChartType(ChartType.PERCENTAGE)) {
                 hintPercentageOffset = Math.max(GeneralUtils.dp2px(getContext(), 25), hintPercentagePaint.measureText("99%")) + hintHorzMargin / 3;
             } else {
@@ -1721,18 +1747,28 @@ public class ChartView extends View implements RangeListener {
         RectF hintRect = new RectF(hintShadowRadius * 2, hintShadowRadius * 2, calculatedHintWidth - hintShadowRadius * 2, calculatedHintHeight - hintShadowRadius * 2);
         canvas.drawRoundRect(hintRect, hintBorderRadius, hintBorderRadius, hintBodyPaint);
 
+        float left = hintRect.left + hintHorzPadding;
+        float right = hintRect.right - hintHorzPadding;
+
         if (isChartType(ChartType.PIE)) {
             ColumnDataSource selectedColumn = visibleLineColumnSources.get(selectedItem);
-            canvas.drawText(selectedColumn.getName(), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintNamePaint), hintNamePaint);
-            float right = hintRect.right - hintHorzPadding;
+            canvas.drawText(selectedColumn.getName(), left, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintNamePaint), hintNamePaint);
             hintValuePaint.setColor(selectedColumn.getColor());
             canvas.drawText(selectedColumn.formatValue(hintPieValue, ValueFormatType.HINT_VALUE), right, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintValuePaint), hintValuePaint);
         } else {
-            canvas.drawText(xColumnSource.formatValue(xColumnSource.getValue(selectedItem), ValueFormatType.HINT_TITLE), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint), hintTitlePaint);
-            float left = hintRect.left + hintHorzPadding;
-            float right = hintRect.right - hintHorzPadding;
+            float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint);
+            String title = xColumnSource.formatValue(xColumnSource.getValue(selectedItem), ValueFormatType.HINT_TITLE);
+            Rect textRect = new Rect();
+            hintTitlePaint.getTextBounds(title, 0, title.length(), textRect);
+            canvas.drawText(title, hintRect.left + hintHorzPadding, currentTop, hintTitlePaint);
+
+
+            if (detailsListener != null && detailsListener.isDetailsAvailable(selectedItem)) {
+                canvas.drawBitmap(hintDetailsBitmap, right - hintDetailsBitmap.getWidth(), currentTop + textRect.centerY() - hintDetailsBitmap.getHeight() * 0.5f, null);
+            }
+
             float fontHeight = GeneralUtils.getFontHeight(hintValuePaint);
-            float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
+            currentTop += hintVertPadding + fontHeight;
 
             float total = 0;
             if (isChartType(ChartType.PERCENTAGE)) {
@@ -2017,6 +2053,10 @@ public class ChartView extends View implements RangeListener {
 
     boolean isChartType(ChartType chartType) {
         return chartDataSource != null && chartDataSource.getChartType().equals(chartType);
+    }
+    
+    public void setDetailsListener(DetailsListener detailsListener) {
+        this.detailsListener = detailsListener;
     }
 
 }

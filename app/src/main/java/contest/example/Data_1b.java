@@ -15,8 +15,8 @@ import contest.datasource.SimpleChartDataSource;
  */
 public class Data_1b {
     public static final SimpleChartDataSource chartDataSource = new SimpleChartDataSource(ChartType.LINE, false, Arrays.<ColumnDataSource>asList(
-            new DateColumnDataSource(ColumnType.X, "undefined", 0, null),
-            new IntegerColumnDataSource(ChartDataSource.YAxis.LEFT, ColumnType.LINE, "Joined", 0xFF4BD964, null),
-            new IntegerColumnDataSource(ChartDataSource.YAxis.LEFT, ColumnType.LINE, "Left", 0xFFFE3C30, null)
+            new DateColumnDataSource(ColumnType.X, "undefined", 0, new long[] {}),
+            new IntegerColumnDataSource(ChartDataSource.YAxis.LEFT, ColumnType.LINE, "Joined", 0xFF4BD964, new long[] {}),
+            new IntegerColumnDataSource(ChartDataSource.YAxis.LEFT, ColumnType.LINE, "Left", 0xFFFE3C30, new long[] {})
     ));
 }

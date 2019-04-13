@@ -44,4 +44,8 @@ public abstract class BaseColumnDataSource implements ColumnDataSource {
         return ChartDataSource.YAxis.NONE;
     }
 
+    public void setValues(long values[]) {
+        this.values = values;
+    }
+
 }

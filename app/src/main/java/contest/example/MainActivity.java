@@ -3,11 +3,7 @@ package contest.example;
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
@@ -31,6 +27,8 @@ import java.util.List;
 import contest.datasource.SimpleChartDataSource;
 import contest.utils.GeneralUtils;
 import contest.view.ChartGroup;
+import contest.view.WeekDetailsChartGroup;
+import telegram.contest.chart.R;
 
 public class MainActivity extends Activity {
 
@@ -60,11 +58,17 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(LinearLayout.VERTICAL);
 
         chartGroups.clear();
-        addChartGroup(Data_1.chartDataSource);
+        /*addChartGroup(Data_1.chartDataSource);
         addChartGroup(Data_2.chartDataSource);
         addChartGroup(Data_3.chartDataSource);
         addChartGroup(Data_4.chartDataSource);
-        addChartGroup(Data_5.chartDataSource);
+        addChartGroup(Data_5.chartDataSource);*/
+        WeekDetailsChartGroup chartGroup = new WeekDetailsChartGroup(this);
+        chartGroup.setChartDataSource(Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
+//        chartGroups.add(chartGroup);
+        linearLayout.addView(chartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        addSpacer(linearLayout);
 
         settingsLayout = new LinearLayout(this);
         settingsLayout.setOrientation(LinearLayout.VERTICAL);
@@ -163,23 +167,14 @@ public class MainActivity extends Activity {
         linearLayout.addView(spacer, layoutParams);
     }
 
-    private Bitmap getMoonBitmap() {
-        Bitmap bitmap = Bitmap.createBitmap(GeneralUtils.dp2px(this, 32), GeneralUtils.dp2px(this, 32), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        Paint whitePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        whitePaint.setColor(Color.WHITE);
-        canvas.drawCircle(bitmap.getWidth() * 0.5f, bitmap.getHeight() * 0.5f, bitmap.getWidth() * 0.28f, whitePaint);
-        Paint transparentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        transparentPaint.setColor(Color.TRANSPARENT);
-        transparentPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_OUT));
-        canvas.drawCircle(bitmap.getWidth() * 0.7f, bitmap.getHeight() * 0.34f, bitmap.getWidth() * 0.25f, transparentPaint);
-        return bitmap;
+    private Bitmap getNightBitmap() {
+        return ((BitmapDrawable) getResources().getDrawable(R.drawable.night)).getBitmap();
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, 100, 0, ("Toggle dark mode"))
-            .setIcon(new BitmapDrawable(getResources(), getMoonBitmap()))
+            .setIcon(new BitmapDrawable(getResources(), getNightBitmap()))
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         return super.onCreateOptionsMenu(menu);
     }
