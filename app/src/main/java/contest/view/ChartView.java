@@ -11,6 +11,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.LongSparseArray;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -26,6 +27,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import contest.datasource.ChartDataSource;
+import contest.datasource.ChartType;
 import contest.datasource.ColumnDataSource;
 import contest.datasource.ColumnType;
 import contest.datasource.ValueFormatType;
@@ -40,101 +42,100 @@ public class ChartView extends View implements RangeListener {
 
     public static final float NO_BOUND = Float.NaN;
 
-    private static final int HINT_INVISIBLE = 0;
-    private static final int HINT_APPEARING = 1;
-    private static final int HINT_VISIBLE = 2;
-    private static final int HINT_DISAPPEARING = 3;
+    static final int HINT_INVISIBLE = 0;
+    static final int HINT_APPEARING = 1;
+    static final int HINT_VISIBLE = 2;
+    static final int HINT_DISAPPEARING = 3;
 
-    private static final int ANIMATE_VALUE = 0;
-    private static final int ANIMATE_OLD_ALPHA = 1;
-    private static final int ANIMATE_NEW_ALPHA = 2;
-    private static final int ANIMATE_TOP_BOUND = 3;
-    private static final int ANIMATE_BOTTOM_BOUND = 4;
-    private static final int ANIMATE_ALPHA = 5;
-    private static final int ANIMATE_LEFT = 6;
-    private static final int ANIMATE_TOP = 7;
+    static final int ANIMATE_VALUE = 0;
+    static final int ANIMATE_OLD_ALPHA = 1;
+    static final int ANIMATE_NEW_ALPHA = 2;
+    static final int ANIMATE_TOP_BOUND = 3;
+    static final int ANIMATE_BOTTOM_BOUND = 4;
+    static final int ANIMATE_ALPHA = 5;
+    static final int ANIMATE_LEFT = 6;
+    static final int ANIMATE_TOP = 7;
 
-    private ChartDataSource chartDataSource;
-    private List<ColumnDataSource> visibleLineColumnSources = new ArrayList<>(); // includes animated column (appearing/disappearing)
-    private ColumnDataSource xColumnSource;
-    private ColumnDataSource yLeftColumnSource;
-    private ColumnDataSource yRightColumnSource;
-    private ColumnDataSource animatingColumn;
-    private float animatingColumnOpacity; // 1f for opaque (alpha = 255), 0f for transparent (alpha = 0)
+    ChartDataSource chartDataSource;
+    List<ColumnDataSource> visibleLineColumnSources = new ArrayList<>(); // includes animated column (appearing/disappearing)
+    ColumnDataSource xColumnSource;
+    ColumnDataSource yLeftColumnSource;
+    ColumnDataSource yRightColumnSource;
+    ColumnDataSource animatingColumn;
+    float animatingColumnOpacity; // 1f for opaque (alpha = 255), 0f for transparent (alpha = 0)
 
-    private float chartLineWidth;
-    private float vertGridLineInterval;
-    private float horzGridValueInterval;
-    private int selectedCircleRadius;
-    private float gridLineWidth;
-    private float hintVertPadding;
-    private float hintHorzPadding;
-    private float hintHorzMargin;
-    private float hintPercentageOffset;
-    private long hintPieValue;
-    private boolean clipToPadding;
-    private float fingerSize;
-    private int animationSpeed;
-    private int hintShadowColor;
-    private float hintShadowRadius;
-    private int hintBorderRadius;
-    private boolean gesturesEnabled;
-    private int windowSizeMinRows = 10;
+    float chartLineWidth;
+    float vertGridLineInterval;
+    float horzGridValueInterval;
+    int selectedCircleRadius;
+    float gridLineWidth;
+    float hintVertPadding;
+    float hintHorzPadding;
+    float hintHorzMargin;
+    float hintPercentageOffset;
+    long hintPieValue;
+    boolean clipToPadding;
+    float fingerSize;
+    int animationSpeed;
+    int hintShadowColor;
+    float hintShadowRadius;
+    int hintBorderRadius;
+    boolean gesturesEnabled;
+    int windowSizeMinRows = 10;
 
-    private float leftBound;
-    private float rightBound;
-    private float topBound; // calculated only for left Y axis
-    private float bottomBound; // calculated only for left Y axis
-    private boolean leftBoundFixed = false;
-    private boolean rightBoundFixed = false;
-    private boolean topBoundFixed = false;
-    private boolean bottomBoundFixed = false;
+    float leftBound;
+    float rightBound;
+    float topBound; // calculated only for left Y axis
+    float bottomBound; // calculated only for left Y axis
+    boolean leftBoundFixed = false;
+    boolean rightBoundFixed = false;
+    boolean topBoundFixed = false;
+    boolean bottomBoundFixed = false;
 
-    private float topGridOffset;
-    private float bottomGridOffset;
-    private float leftGridOffset;
-    private float rightGridOffset;
-    private float gridWidth;
-    private float gridHeight;
-    private float gridStepX;
-    private float gridStepY;
+    float topGridOffset;
+    float bottomGridOffset;
+    float leftGridOffset;
+    float rightGridOffset;
+    float gridWidth;
+    float gridHeight;
+    float gridStepX;
+    float gridStepY;
 
-    private VertGridPainter vertGridPainter = new VertGridPainter();
-    private HorzGridPainter horzGridPainter = new HorzGridPainter();
-    private ChartPainter chartPainter;
-    private ColumnType type;
+    VertGridPainter vertGridPainter = new VertGridPainter();
+    HorzGridPainter horzGridPainter = new HorzGridPainter();
+    ChartPainter chartPainter;
 
-    private Bitmap hintBitmap;
-    private float calculatedHintWidth;
-    private float calculatedHintHeight;
-    private Rect hintBitmapSrcRect = new Rect();
-    private Rect hintBitmapDstRect = new Rect();
-    private int hintState = HINT_INVISIBLE;
+    Bitmap hintBitmap;
+    float calculatedHintWidth;
+    float calculatedHintHeight;
+    Rect hintBitmapSrcRect = new Rect();
+    Rect hintBitmapDstRect = new Rect();
+    int hintState = HINT_INVISIBLE;
 
-    private float calculatedTopBound; // target bound for animations, calculated only for left Y axis
-    private float calculatedBottomBound; // target bound for animations, calculated only for left Y axis
-    private float rightYAxisMultiplier;
+    float calculatedTopBound; // target bound for animations, calculated only for left Y axis
+    float calculatedBottomBound; // target bound for animations, calculated only for left Y axis
+    float rightYAxisMultiplier;
 
-    private int selectedItem = -1;
+    int selectedItem = -1;
 
-    private Paint hintTitlePaint;
-    private Paint hintBodyPaint;
-    private Paint hintPercentagePaint;
-    private Paint hintNamePaint;
-    private Paint hintValuePaint;
-    private Paint hintCopyPaint;
+    Paint hintTitlePaint;
+    Paint hintBodyPaint;
+    Paint hintPercentagePaint;
+    Paint hintNamePaint;
+    Paint hintValuePaint;
+    Paint hintCopyPaint;
 
-    private int selectedLineColor;
-    private int selectedCircleFillColor;
-    private float selectedLineWidth;
+    int selectedLineColor;
+    int selectedCircleFillColor;
+    float selectedLineWidth;
 
-    private interface ChartPainter {
+    interface ChartPainter {
         void update();
         void draw(Canvas canvas);
         void selectNearest(float screenX, float screenY, float searchSize);
     }
 
-    private class PieChartPainter implements ChartPainter {
+    class PieChartPainter implements ChartPainter {
 
         float chartValues[] = new float[] {};
         Paint chartPaints[] = new Paint[] {};
@@ -193,7 +194,7 @@ public class ChartView extends View implements RangeListener {
             }
         }
 
-        private void drawWedgeCaption(Canvas canvas, boolean selected, int item, int percentage, float currentAngle, float sweepAngle) {
+        void drawWedgeCaption(Canvas canvas, boolean selected, int item, int percentage, float currentAngle, float sweepAngle) {
             float centerX = leftGridOffset + gridWidth / 2;
             float centerY = topGridOffset + gridHeight / 2;
             float baseRadius = Math.min(centerX, centerY) * 0.8f;
@@ -289,7 +290,7 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    private class LineChartPainter implements ChartPainter {
+    class LineChartPainter implements ChartPainter {
         Paint chartPaints[] = new Paint[] {};
         float chartLines[][] = new float[][] {};
         int chartLinesLength;
@@ -423,7 +424,7 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    private class BarStackPainter implements ChartPainter {
+    class BarStackPainter implements ChartPainter {
         Paint chartPaints[] = new Paint[] {};
         float chartLines[][] = new float[][] {};
         int chartLinesLength;
@@ -532,7 +533,7 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    private class PercentagePainter implements ChartPainter {
+    class PercentagePainter implements ChartPainter {
         Paint selectedLinePaint;
         Paint chartPaints[] = new Paint[] {};
         Path chartPaths[] = new Path[] {};
@@ -563,12 +564,15 @@ public class ChartView extends View implements RangeListener {
                 }
                 paint.setColor(visibleLineColumnSources.get(c).getColor());
                 chartPaints[c] = paint;
+                chartPaths[c] = new Path();
+                chartPaths[c].incReserve(righterBound - lefterBound + 10);
             }
 
             float gridBottom = topGridOffset + gridHeight;
             float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
 
-            long[][] fastValues = new long[visibleLineColumnSources.size()][];
+            long fastValues[][] = new long[visibleLineColumnSources.size()][];
+            float bottoms[] = new float[visibleLineColumnSources.size()]; // reducing size filled area allows to speed up drawPath
             int i = 0;
             int animatingColumnIdx = -1;
             for (ColumnDataSource column: visibleLineColumnSources) {
@@ -579,10 +583,9 @@ public class ChartView extends View implements RangeListener {
             }
 
             float firstX = gridToScreenX(lefterBound);
-            for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
-                Path currentPath = new Path();
-                chartPaths[chartIdx] = currentPath;
-                chartPaths[chartIdx].moveTo(firstX, gridBottom);
+            // last path is not never needed actually, it can be replaced with rectangle
+            for (int chartIdx = 0; chartIdx < fastValues.length - 1; ++chartIdx) {
+                chartPaths[chartIdx].reset();
             }
 
             for (int row = 0; row <= righterBound - lefterBound; ++row) {
@@ -592,22 +595,36 @@ public class ChartView extends View implements RangeListener {
                     float opacityMultiplier = chartIdx != animatingColumnIdx ? 1f : animatingColumnOpacity;
                     total += fastValues[chartIdx][row + lefterBound] * opacityMultiplier;
                 }
-                for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
+                for (int chartIdx = 0; chartIdx < fastValues.length - 1; ++chartIdx) {
                     float opacityMultiplier = chartIdx != animatingColumnIdx ? 1f : animatingColumnOpacity;
                     curValue -= fastValues[chartIdx][row + lefterBound] * opacityMultiplier / total * gridHeight;
-                    chartPaths[chartIdx].lineTo(firstX + row * gridStepX, curValue);
+                    if (row == 0) {
+                        chartPaths[chartIdx].moveTo(firstX, curValue);
+                    } else {
+                        chartPaths[chartIdx].lineTo(firstX + row * gridStepX, curValue);
+                    }
+                    if (bottoms[chartIdx] < curValue) {
+                        bottoms[chartIdx] = curValue;
+                    }
                 }
             }
 
-            for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
-                chartPaths[chartIdx].lineTo(firstX + (righterBound - lefterBound) * gridStepX, gridBottom);
+            for (int chartIdx = 0; chartIdx < fastValues.length - 1; ++chartIdx) {
+                float bottom = chartIdx == 0 ? gridBottom : bottoms[chartIdx - 1];
+                chartPaths[chartIdx].lineTo(firstX + (righterBound - lefterBound) * gridStepX, bottom);
+                chartPaths[chartIdx].lineTo(firstX, bottom);
                 chartPaths[chartIdx].close();
             }
         }
 
         @Override
         public void draw(Canvas canvas) {
-            for (int p = visibleLineColumnSources.size() - 1; p >= 0; --p) {
+            if (visibleLineColumnSources.isEmpty()) {
+                return;
+            }
+            canvas.drawRect(gridToScreenX(getLefterBound()), topGridOffset, gridToScreenX(getRighterBound()),
+                    topGridOffset + gridHeight, chartPaints[visibleLineColumnSources.size() - 1]);
+            for (int p = visibleLineColumnSources.size() - 2; p >= 0; --p) {
                 canvas.drawPath(chartPaths[p], chartPaints[p]);
             }
 
@@ -637,7 +654,7 @@ public class ChartView extends View implements RangeListener {
         int destAlphaRight = 0;
     }
 
-    private class VertGridPainter extends SimpleAnimator.Listener {
+    class VertGridPainter extends SimpleAnimator.Listener {
 
         float valueSpacing;
         LongSparseArray<VertGridLine> lines = new LongSparseArray<>();
@@ -718,7 +735,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return;
             }
 
@@ -748,7 +765,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void draw(Canvas canvas) {
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return;
             }
 
@@ -805,7 +822,7 @@ public class ChartView extends View implements RangeListener {
         String value;
     }
 
-    private class HorzGridPainter extends SimpleAnimator.Listener {
+    class HorzGridPainter extends SimpleAnimator.Listener {
         LongSparseArray<HorzGridLine> lines = new LongSparseArray<>();
 
         SimpleAnimator animator = new SimpleAnimator();
@@ -869,7 +886,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return;
             }
 
@@ -916,7 +933,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void draw(Canvas canvas) {
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return;
             }
 
@@ -940,16 +957,16 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    private float touchBeginX;
-    private ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.OnScaleGestureListener() {
-        private float oldFocusX;
+    float touchBeginX;
+    ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.OnScaleGestureListener() {
+        float oldFocusX;
 
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             if (!gesturesEnabled) {
                 return false;
             }
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return false;
             }
             float x = detector.getFocusX() / getMeasuredWidth();
@@ -967,7 +984,7 @@ public class ChartView extends View implements RangeListener {
             if (!gesturesEnabled) {
                 return false;
             }
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return false;
             }
             oldFocusX = detector.getFocusX();
@@ -979,8 +996,8 @@ public class ChartView extends View implements RangeListener {
         public void onScaleEnd(ScaleGestureDetector detector) {
         }
     });
-    private GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.OnGestureListener() {
-        private SimpleAnimator flingAnimator;
+    GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.OnGestureListener() {
+        SimpleAnimator flingAnimator;
 
         @Override
         public boolean onDown(MotionEvent e) {
@@ -1022,7 +1039,7 @@ public class ChartView extends View implements RangeListener {
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return false;
             }
             getParent().requestDisallowInterceptTouchEvent(true);
@@ -1049,7 +1066,7 @@ public class ChartView extends View implements RangeListener {
             if (!gesturesEnabled) {
                 return false;
             }
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 return false;
             }
             float normalVelocity = (float) (Math.pow(Math.abs(velocityX), 0.8f) * Math.signum(velocityX));
@@ -1078,9 +1095,9 @@ public class ChartView extends View implements RangeListener {
         }
     });
 
-    private Set<RangeListener> rangeListeners = new HashSet<>();
+    Set<RangeListener> rangeListeners = new HashSet<>();
 
-    private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
+    ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
         @Override
         public void onSetColumnVisibility(int column, final boolean visible) {
             final ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
@@ -1141,9 +1158,9 @@ public class ChartView extends View implements RangeListener {
         }
     };
 
-    private SimpleAnimator chartAnimator;
-    private SimpleAnimator hintAnimator;
-    private boolean isDragging;
+    SimpleAnimator chartAnimator;
+    SimpleAnimator hintAnimator;
+    boolean isDragging;
 
     public ChartView(Context context) {
         super(context);
@@ -1166,7 +1183,7 @@ public class ChartView extends View implements RangeListener {
         init();
     }
 
-    private void init() {
+    void init() {
         hintTitlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         hintTitlePaint.setTypeface(GeneralUtils.getBoldTypeface());
         hintTitlePaint.setStyle(Paint.Style.FILL);
@@ -1183,7 +1200,6 @@ public class ChartView extends View implements RangeListener {
         hintValuePaint.setTextAlign(Paint.Align.RIGHT);
         hintCopyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        setType(ColumnType.PIE);
         setChartLineWidth(GeneralUtils.dp2px(getContext(), 2));
         setVertGridLineInterval(GeneralUtils.dp2px(getContext(), 40));
         setHorzGridValueInterval(GeneralUtils.dp2px(getContext(), 20));
@@ -1343,25 +1359,6 @@ public class ChartView extends View implements RangeListener {
         this.gesturesEnabled = gesturesEnabled;
     }
 
-    public void setType(ColumnType type) {
-        this.type = type;
-        switch (type) {
-            case LINE:
-                chartPainter = new LineChartPainter();
-                break;
-            case BAR_STACK:
-                chartPainter = new BarStackPainter();
-                break;
-            case PERCENTAGE:
-                chartPainter = new PercentagePainter();
-                break;
-            case PIE:
-                chartPainter = new PieChartPainter();
-                break;
-        }
-        updateChart(true);
-    }
-
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         getParent().requestDisallowInterceptTouchEvent(false);
@@ -1385,7 +1382,7 @@ public class ChartView extends View implements RangeListener {
         return super.onTouchEvent(event);
     }
 
-    private float sqr(float val) {
+    float sqr(float val) {
         return val * val;
     }
 
@@ -1418,6 +1415,21 @@ public class ChartView extends View implements RangeListener {
             this.chartDataSource.removeListener(chartDataSourceListener);
         }
         this.chartDataSource = chartDataSource;
+        switch (chartDataSource.getChartType()) {
+            case LINE:
+                chartPainter = new LineChartPainter();
+                break;
+            case BAR_STACK:
+                chartPainter = new BarStackPainter();
+                break;
+            case PERCENTAGE:
+                chartPainter = new PercentagePainter();
+                break;
+            case PIE:
+                chartPainter = new PieChartPainter();
+                break;
+        }
+        updateChart(true);
         rightYAxisMultiplier = chartDataSource.getRightYAxisMultiplier();
         updateColumns();
         chartDataSource.addListener(chartDataSourceListener);
@@ -1429,9 +1441,9 @@ public class ChartView extends View implements RangeListener {
         return chartDataSource;
     }
 
-    private void updateColumns() {
+    void updateColumns() {
         ColumnDataSource restoreSelectedColumn = null;
-        if (type.equals(ColumnType.PIE) && selectedItem > -1) {
+        if (isChartType(ChartType.PIE) && selectedItem > -1) {
             restoreSelectedColumn = visibleLineColumnSources.get(selectedItem);
         }
 
@@ -1449,17 +1461,17 @@ public class ChartView extends View implements RangeListener {
         yLeftColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.LEFT));
         yRightColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.RIGHT));
 
-        if (type.equals(ColumnType.PIE) && restoreSelectedColumn != null) {
+        if (isChartType(ChartType.PIE) && restoreSelectedColumn != null) {
             selectedItem = visibleLineColumnSources.indexOf(restoreSelectedColumn);
         }
         invalidate();
     }
 
-    private float gridToScreenX(float gridX) {
+    float gridToScreenX(float gridX) {
         return leftGridOffset + (gridX - leftBound) * gridStepX;
     }
 
-    private float gridToScreenY(ChartDataSource.YAxis yAxis, float gridY) {
+    float gridToScreenY(ChartDataSource.YAxis yAxis, float gridY) {
         if (yAxis.equals(ChartDataSource.YAxis.LEFT)) {
             return topGridOffset + gridHeight - (gridY - bottomBound) * gridStepY;
         } else {
@@ -1467,7 +1479,7 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    private float screenToGridX(float screenX) {
+    float screenToGridX(float screenX) {
         float x = screenX - leftGridOffset;
         float valuesCount = (rightBound - leftBound);
         if (valuesCount == 0) {
@@ -1476,7 +1488,7 @@ public class ChartView extends View implements RangeListener {
         return leftBound + valuesCount * x / gridWidth;
     }
 
-    private float screenToGridY(float screenY) {
+    float screenToGridY(float screenY) {
         float localY = bottomGridOffset - screenY;
         float valuesCount = (topBound - bottomBound);
         if (valuesCount == 0) {
@@ -1485,20 +1497,20 @@ public class ChartView extends View implements RangeListener {
         return bottomBound + valuesCount * localY / gridHeight;
     }
 
-    private int getLefterBound() {
+    int getLefterBound() {
         return (int) Math.max(0, screenToGridX(clipToPadding ? leftGridOffset : 0));
     }
 
-    private int getRighterBound() {
+    int getRighterBound() {
         return (int) Math.min(chartDataSource.getRowsCount() - 1, screenToGridX(getMeasuredWidth() - (clipToPadding ? rightGridOffset : 0)) + 1);
     }
 
-    private boolean isStacking() {
-        return type.equals(ColumnType.BAR_STACK) || type.equals(ColumnType.PERCENTAGE);
+    boolean isStacking() {
+        return isChartType(ChartType.BAR_STACK) || isChartType(ChartType.PERCENTAGE);
     }
 
-    private void calculateVertBounds() {
-        if (type.equals(ColumnType.PERCENTAGE)) {
+    void calculateVertBounds() {
+        if (isChartType(ChartType.PERCENTAGE)) {
             calculatedBottomBound = 0f;
             calculatedTopBound = 100f;
             return;
@@ -1525,7 +1537,7 @@ public class ChartView extends View implements RangeListener {
         updateGridOffsets();
     }
 
-    private void updateGridOffsets() {
+    void updateGridOffsets() {
         topGridOffset = getPaddingTop() + GeneralUtils.getFontHeight(vertGridPainter.textPaint);
         leftGridOffset = getPaddingLeft() + gridLineWidth / 2;
         rightGridOffset = getPaddingRight() + gridLineWidth / 2;
@@ -1538,7 +1550,7 @@ public class ChartView extends View implements RangeListener {
         gridStepY = valuesCount <= 1 ? 0 : gridHeight / valuesCount;
     }
 
-    private void setBounds(float left, float right, boolean animation) {
+    void setBounds(float left, float right, boolean animation) {
         if ((leftBound == left || leftBoundFixed) && (rightBound == right || rightBoundFixed)) {
             updateChart(false);
             return;
@@ -1555,7 +1567,7 @@ public class ChartView extends View implements RangeListener {
         updateGridOffsets();
         if (animation) {
             startRangeAnimation();
-            if (type.equals(ColumnType.PIE)) {
+            if (isChartType(ChartType.PIE)) {
                 updateHint();
             } else {
                 placeHint();
@@ -1563,7 +1575,17 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    private void updateChart(boolean reset) {
+    int updatesPerSecond = 0;
+    long lastSecond = System.currentTimeMillis();
+
+    void updateChart(boolean reset) {
+        ++updatesPerSecond;
+        if (System.currentTimeMillis() > lastSecond + 1000) {
+            Log.i("ZZZ", "Updates/s: " + updatesPerSecond);
+            updatesPerSecond = 0;
+            lastSecond = System.currentTimeMillis();
+        }
+
         if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
             return;
         }
@@ -1594,7 +1616,7 @@ public class ChartView extends View implements RangeListener {
         updateHint();
     }
 
-    private float gridRound(float value) {
+    float gridRound(float value) {
         double degree10 = Math.floor(Math.log10(value));
         value *= Math.pow(10, -degree10);
         // round grid to values like 1/2.5/5/10/25/50/100/etc. so it could scale nicely
@@ -1626,9 +1648,9 @@ public class ChartView extends View implements RangeListener {
         horzGridPainter.reset();
     }
 
-    private void updateHint() {
+    void updateHint() {
         if (selectedItem < 0 || xColumnSource == null) {
-            if (type.equals(ColumnType.PIE) && hintState != HINT_INVISIBLE) {
+            if (isChartType(ChartType.PIE) && hintState != HINT_INVISIBLE) {
                 placeHint();
                 return;
             }
@@ -1639,7 +1661,7 @@ public class ChartView extends View implements RangeListener {
 
         float bodyWidth;
         float bodyHeight;
-        if (type.equals(ColumnType.PIE)) {
+        if (isChartType(ChartType.PIE)) {
             ColumnDataSource selectedColumn = visibleLineColumnSources.get(selectedItem);
             bodyWidth = hintNamePaint.measureText(selectedColumn.getName());
             int lefterBound = getLefterBound();
@@ -1656,7 +1678,7 @@ public class ChartView extends View implements RangeListener {
             bodyHeight = GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding;
         } else {
             bodyWidth = hintTitlePaint.measureText(xColumnSource.formatValue(xColumnSource.getValue(selectedItem), ValueFormatType.HINT_TITLE));
-            if (type.equals(ColumnType.PERCENTAGE)) {
+            if (isChartType(ChartType.PERCENTAGE)) {
                 hintPercentageOffset = Math.max(GeneralUtils.dp2px(getContext(), 25), hintPercentagePaint.measureText("99%")) + hintHorzMargin / 3;
             } else {
                 hintPercentageOffset = 0;
@@ -1677,7 +1699,7 @@ public class ChartView extends View implements RangeListener {
         placeHint();
     }
 
-    private void drawHintBitmap() {
+    void drawHintBitmap() {
         if (hintBitmap != null && (hintBitmap.getWidth() != calculatedHintWidth || hintBitmap.getHeight() != calculatedHintHeight)) {
             hintBitmap.recycle();
             hintBitmap = null;
@@ -1699,7 +1721,7 @@ public class ChartView extends View implements RangeListener {
         RectF hintRect = new RectF(hintShadowRadius * 2, hintShadowRadius * 2, calculatedHintWidth - hintShadowRadius * 2, calculatedHintHeight - hintShadowRadius * 2);
         canvas.drawRoundRect(hintRect, hintBorderRadius, hintBorderRadius, hintBodyPaint);
 
-        if (type.equals(ColumnType.PIE)) {
+        if (isChartType(ChartType.PIE)) {
             ColumnDataSource selectedColumn = visibleLineColumnSources.get(selectedItem);
             canvas.drawText(selectedColumn.getName(), hintRect.left + hintHorzPadding, hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintNamePaint), hintNamePaint);
             float right = hintRect.right - hintHorzPadding;
@@ -1713,7 +1735,7 @@ public class ChartView extends View implements RangeListener {
             float currentTop = hintRect.top + hintVertPadding + GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding + fontHeight;
 
             float total = 0;
-            if (type.equals(ColumnType.PERCENTAGE)) {
+            if (isChartType(ChartType.PERCENTAGE)) {
                 for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
                     total += columnDataSource.getValue(selectedItem);
                 }
@@ -1721,7 +1743,7 @@ public class ChartView extends View implements RangeListener {
 
             for (ColumnDataSource columnDataSource : visibleLineColumnSources) {
                 float currentLeft = left;
-                if (type.equals(ColumnType.PERCENTAGE)) {
+                if (isChartType(ChartType.PERCENTAGE)) {
                     hintPercentagePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
                     canvas.drawText(String.format(Locale.getDefault(), "%d%%", (int) (columnDataSource.getValue(selectedItem) / total * 100)), left, currentTop, hintPercentagePaint);
                     currentLeft += hintPercentageOffset;
@@ -1742,8 +1764,8 @@ public class ChartView extends View implements RangeListener {
         invalidate();
     }
 
-    private void placeHint() {
-        if (selectedItem < 0 && !type.equals(ColumnType.PIE)) {
+    void placeHint() {
+        if (selectedItem < 0 && !isChartType(ChartType.PIE)) {
             return;
         }
         if (hintState == HINT_DISAPPEARING || hintState == HINT_APPEARING) { // already animating to appear/disappear
@@ -1757,7 +1779,7 @@ public class ChartView extends View implements RangeListener {
         final float hintWidth = hintBitmap.getWidth();
         final float hintHeight = hintBitmap.getHeight();
 
-        if (type.equals(ColumnType.PIE)) {
+        if (isChartType(ChartType.PIE)) {
             ((PieChartPainter) chartPainter).updateSuggestedHintPosition();
 
             hintLeft = ((PieChartPainter) chartPainter).suggestedHintX - hintWidth / 2;
@@ -1830,7 +1852,7 @@ public class ChartView extends View implements RangeListener {
         invalidate();
     }
 
-    private void startHintAnimation(float hintLeft, float hintTop, float hintRight, float hintBottom) {
+    void startHintAnimation(float hintLeft, float hintTop, float hintRight, float hintBottom) {
         if (hintAnimator != null) {
             hintAnimator.cancel();
         }
@@ -1890,7 +1912,7 @@ public class ChartView extends View implements RangeListener {
         hintAnimator.start();
     }
 
-    private String formatGridValue(boolean left, float value) {
+    String formatGridValue(boolean left, float value) {
         // TODO: bad conversion from float back to long, the value might be broken
         if (left) {
             return yLeftColumnSource.formatValue((long) value, ValueFormatType.VERT_GRID);
@@ -1934,7 +1956,7 @@ public class ChartView extends View implements RangeListener {
         setBounds(startRow, endRow, isDragging);
     }
 
-    private void startRangeAnimation() {
+    void startRangeAnimation() {
         if (chartDataSource == null) {
             return;
         }
@@ -1993,7 +2015,8 @@ public class ChartView extends View implements RangeListener {
         invalidate(); // redraw with high quality
     }
 
-    public ColumnType getType() {
-        return type;
+    boolean isChartType(ChartType chartType) {
+        return chartDataSource != null && chartDataSource.getChartType().equals(chartType);
     }
+
 }

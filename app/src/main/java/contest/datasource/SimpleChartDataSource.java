@@ -10,15 +10,26 @@ import java.util.Set;
  */
 public class SimpleChartDataSource implements ChartDataSource {
 
-    private List<ColumnDataSource> columns = new ArrayList<>();
-    private Set<ColumnDataSource> invisibleColumns = new HashSet<>();
-    private Set<Listener> listeners = new HashSet<>();
+    private final ChartType chartType;
+    private final boolean doubleAxis;
+    private final List<ColumnDataSource> columns = new ArrayList<>();
+    private final Set<ColumnDataSource> invisibleColumns = new HashSet<>();
+    private final Set<Listener> listeners = new HashSet<>();
     private int rowsCount = 0;
+    private float rightYAxisMultiplier = 1f;
 
-    public SimpleChartDataSource() {}
-
-    public SimpleChartDataSource(List<ColumnDataSource> columns) {
+    public SimpleChartDataSource(ChartType chartType, boolean doubleAxis, List<ColumnDataSource> columns) {
+        this.chartType = chartType;
+        this.doubleAxis = doubleAxis;
+        if (doubleAxis) {
+            rightYAxisMultiplier = 20f;
+        }
         addColumns(columns);
+    }
+
+    @Override
+    public ChartType getChartType() {
+        return chartType;
     }
 
     public int getColumnsCount() {
@@ -49,10 +60,8 @@ public class SimpleChartDataSource implements ChartDataSource {
 
     @Override
     public int getYAxisValueSourceColumn(YAxis yAxis) {
-        // just return first found line column
         for (int c = 0; c < columns.size(); ++c) {
-            ColumnDataSource columnDataSource = columns.get(c);
-            if (columnDataSource.getType().equals(ColumnType.LINE) && columns.get(c).getYAxis().equals(yAxis)) {
+            if (columns.get(c).getYAxis().equals(yAxis)) {
                 return c;
             }
         }
@@ -61,7 +70,7 @@ public class SimpleChartDataSource implements ChartDataSource {
 
     @Override
     public float getRightYAxisMultiplier() {
-        return 2f; // TODO
+        return rightYAxisMultiplier;
     }
 
     public void addColumn(ColumnDataSource column) {

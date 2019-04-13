@@ -13,6 +13,8 @@ public interface ChartDataSource {
         void onSetColumnVisibility(int column, boolean visible);
     }
 
+    ChartType getChartType();
+
     int getColumnsCount();
     int getRowsCount();
     ColumnDataSource getColumn(int column);

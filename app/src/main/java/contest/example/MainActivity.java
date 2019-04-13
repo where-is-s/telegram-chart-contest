@@ -28,12 +28,9 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-import contest.datasource.ChartDataSource;
-import contest.datasource.ColumnDataSource;
-import contest.datasource.IntegerColumnDataSource;
+import contest.datasource.SimpleChartDataSource;
 import contest.utils.GeneralUtils;
 import contest.view.ChartGroup;
-import contest.view.ChartView;
 
 public class MainActivity extends Activity {
 
@@ -42,6 +39,7 @@ public class MainActivity extends Activity {
     private LinearLayout settingsLayout;
     private List<CheckBox> settingCheckBoxes = new ArrayList<>();
     private List<View> separators = new ArrayList<>();
+    private LinearLayout linearLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,19 +56,15 @@ public class MainActivity extends Activity {
 
         ScrollView scrollView = new ScrollView(this);
 
-        LinearLayout linearLayout = new LinearLayout(this);
+        linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(LinearLayout.VERTICAL);
 
         chartGroups.clear();
-        for (int i = 0; i < Data.chartDataSources.length; ++i) {
-            ChartGroup chartGroup = new ChartGroup(this);
-            chartGroup.setHeaderText("Chart #" + i);
-            chartGroup.setChartDataSource(Data.chartDataSources[i]);
-            chartGroups.add(chartGroup);
-            linearLayout.addView(chartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-            addSpacer(linearLayout);
-        }
+        addChartGroup(Data_1.chartDataSource);
+        addChartGroup(Data_2.chartDataSource);
+        addChartGroup(Data_3.chartDataSource);
+        addChartGroup(Data_4.chartDataSource);
+        addChartGroup(Data_5.chartDataSource);
 
         settingsLayout = new LinearLayout(this);
         settingsLayout.setOrientation(LinearLayout.VERTICAL);
@@ -103,30 +97,22 @@ public class MainActivity extends Activity {
                 }
             }
         });
-        addSetting("Enable short formatting", new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                for (ChartDataSource chartDataSource: Data.chartDataSources) {
-                    for (int c = 0; c < chartDataSource.getColumnsCount(); ++c) {
-                        ColumnDataSource columnDataSource = chartDataSource.getColumn(c);
-                        if (columnDataSource instanceof IntegerColumnDataSource) {
-                            ((IntegerColumnDataSource) columnDataSource).setReadableFormatting(isChecked);
-                        }
-                    }
-                }
-                for (ChartGroup chartGroup: chartGroups) {
-                    chartGroup.getChartView().update();
-                }
-            }
-        });
-        addSetting("Animate bottom bound", new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                for (ChartGroup chartGroup: chartGroups) {
-                    chartGroup.getChartView().setBottomBound(isChecked ? ChartView.NO_BOUND : 0f);
-                }
-            }
-        });
+//        addSetting("Enable short formatting", new CompoundButton.OnCheckedChangeListener() {
+//            @Override
+//            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+//                for (ChartDataSource chartDataSource: Data.chartDataSources) {
+//                    for (int c = 0; c < chartDataSource.getColumnsCount(); ++c) {
+//                        ColumnDataSource columnDataSource = chartDataSource.getColumn(c);
+//                        if (columnDataSource instanceof IntegerColumnDataSource) {
+//                            ((IntegerColumnDataSource) columnDataSource).setReadableFormatting(isChecked);
+//                        }
+//                    }
+//                }
+//                for (ChartGroup chartGroup: chartGroups) {
+//                    chartGroup.getChartView().update();
+//                }
+//            }
+//        });
 
         linearLayout.addView(settingsLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         addSpacer(linearLayout);
@@ -134,6 +120,16 @@ public class MainActivity extends Activity {
         scrollView.addView(linearLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(scrollView);
+    }
+
+    private void addChartGroup(SimpleChartDataSource chartDataSource) {
+        ChartGroup chartGroup = new ChartGroup(this);
+        chartGroup.setHeaderText("Chart #" + (chartGroups.size() + 1));
+        chartGroup.setChartDataSource(chartDataSource);
+        chartGroups.add(chartGroup);
+        linearLayout.addView(chartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        addSpacer(linearLayout);
     }
 
     private void addSetting(String title, CompoundButton.OnCheckedChangeListener listener) {

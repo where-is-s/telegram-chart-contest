@@ -1,6 +1,5 @@
 package contest.utils;
 
-import android.util.Log;
 import android.view.Choreographer;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
@@ -136,7 +135,12 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
         if (fraction >= 1f) {
             stop();
         } else {
+//            TODO: optimize excessive callbacks when animating through UI events (using finger or another animation)
+//            if (fraction == 0f) {
+//                Choreographer.getInstance().postFrameCallbackDelayed(this, 20);
+//            } else {
             Choreographer.getInstance().postFrameCallback(this);
+//            }
         }
     }
 

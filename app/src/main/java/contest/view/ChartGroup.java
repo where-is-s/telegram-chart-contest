@@ -12,6 +12,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import contest.datasource.ChartDataSource;
+import contest.datasource.ChartType;
 import contest.datasource.ColumnDataSource;
 import contest.datasource.ValueFormatType;
 import contest.utils.GeneralUtils;
@@ -92,7 +93,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         chartNavigationView.setChartLineWidth(GeneralUtils.dp2px(getContext(), 1));
         chartNavigationView.setBottomBound(0f);
         chartNavigationView.setPadding(dp16, 0, dp16, 0);
-        chartNavigationView.setChartView(chartView);
+        chartNavigationView.setListener(chartView);
         chartView.addListener(chartNavigationView);
         addView(chartNavigationView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 48)));
 
@@ -105,6 +106,9 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         chartView.setChartDataSource(chartDataSource);
         chartNavigationView.setChartDataSource(chartDataSource);
         chartLegendView.setChartDataSource(chartDataSource);
+        float bottomBound = chartDataSource.getChartType().equals(ChartType.LINE) ? Float.NaN : 0f;
+        chartView.setBottomBound(bottomBound);
+        chartNavigationView.setBottomBound(bottomBound);
     }
 
     public void setHeaderText(String text) {

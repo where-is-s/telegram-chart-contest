@@ -21,7 +21,6 @@ import telegram.contest.chart.R;
  */
 public class LegendCheckBox extends View {
 
-
     public interface Listener {
         void onCheckedChanged(LegendCheckBox checkBox, boolean isChecked);
     }

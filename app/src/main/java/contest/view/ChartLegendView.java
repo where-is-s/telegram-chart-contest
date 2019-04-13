@@ -112,7 +112,7 @@ public class ChartLegendView extends LinearLayout {
             return;
         }
 
-        int width = r - l;
+        int width = r - l - getPaddingLeft() - getPaddingRight();
 
         removeAllViews();
         for (LegendCheckBox checkBox: checkBoxes) {
@@ -128,7 +128,7 @@ public class ChartLegendView extends LinearLayout {
 
         for (int i = 0; i < checkBoxes.size(); i++) {
             LegendCheckBox checkBox = checkBoxes.get(i);
-            checkBox.measure(0, 0);
+            checkBox.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
 
             if (horzLineLayout == null || currentWidth + checkBox.getMeasuredWidth() >= width) {
                 horzLineLayout = new LinearLayout(getContext());

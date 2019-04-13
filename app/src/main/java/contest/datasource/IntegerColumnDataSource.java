@@ -1,5 +1,7 @@
 package contest.datasource;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
 /**
@@ -8,15 +10,15 @@ import java.util.Locale;
 public class IntegerColumnDataSource extends BaseColumnDataSource {
 
     private final ChartDataSource.YAxis yAxis;
-    private boolean readableFormatting = false;
+    private final DecimalFormat formatter;
+
 
     public IntegerColumnDataSource(ChartDataSource.YAxis yAxis, ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);
         this.yAxis = yAxis;
-    }
-
-    public void setReadableFormatting(boolean readableFormatting) {
-        this.readableFormatting = readableFormatting;
+        DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance();
+        symbols.setGroupingSeparator(' ');
+        formatter = new DecimalFormat("###,###", symbols);
     }
 
     public ChartDataSource.YAxis getYAxis() {
@@ -25,23 +27,21 @@ public class IntegerColumnDataSource extends BaseColumnDataSource {
 
     @Override
     public String formatValue(long value, ValueFormatType valueFormatType) {
-        if (!readableFormatting) {
-            return String.valueOf(value);
-        }
-        if (value < 1000) {
-            return String.valueOf(value);
-        } else if (value < 10000) {
-            return String.format(Locale.getDefault(), "%.01fk", value/1000f);
-        } else if (value < 1000000) {
-            return String.format(Locale.getDefault(), "%dk", (int) (value/1000f));
-        } else if (value < 10000000) {
-            return String.format(Locale.getDefault(), "%.01fm", value/1000000f);
-        } else if (value < 1000000000) {
-            return String.format(Locale.getDefault(), "%dm", (int) (value/1000000f));
-        } else if (value < 10000000000L) {
-            return String.format(Locale.getDefault(), "%.01fb", value/1000000000f);
-        } else {
-            return String.format(Locale.getDefault(), "%db", (int) (value/1000000000f));
+        switch (valueFormatType) {
+            case VERT_GRID:
+                if (value < 10000) {
+                    return String.valueOf(value);
+                } else if (value < 1000000) {
+                    return String.format(Locale.getDefault(), "%dK", (int) (value/1000));
+                } else if (value < 1000000000L) {
+                    return String.format(Locale.getDefault(), "%dM", value/1000000L);
+                } else {
+                    return String.format(Locale.getDefault(), "%dB", (int) (value/1000000000L));
+                }
+            case HINT_VALUE:
+                return formatter.format(value);
+            default:
+                return "not specified";
         }
     }
 
