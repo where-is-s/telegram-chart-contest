@@ -139,6 +139,7 @@ public class ChartView extends View implements RangeListener {
         float chartValues[] = new float[] {};
         Paint chartPaints[] = new Paint[] {};
         RectF drawRect = new RectF();
+        Rect textRect = new Rect();
         Paint valuePaint;
         float minTextSizeSp = 16;
         float maxTextSizeSp = 36;
@@ -149,7 +150,6 @@ public class ChartView extends View implements RangeListener {
             valuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             valuePaint.setStyle(Paint.Style.FILL);
             valuePaint.setColor(Color.WHITE);
-            valuePaint.setTextAlign(Paint.Align.CENTER);
             valuePaint.setTypeface(GeneralUtils.getMediumTypeface());
         }
 
@@ -193,41 +193,62 @@ public class ChartView extends View implements RangeListener {
             }
         }
 
-        @Override
-        public void draw(Canvas canvas) {
+        private void drawWedgeCaption(Canvas canvas, boolean selected, int item, int percentage, float currentAngle, float sweepAngle) {
             float centerX = leftGridOffset + gridWidth / 2;
             float centerY = topGridOffset + gridHeight / 2;
             float baseRadius = Math.min(centerX, centerY) * 0.8f;
 
-            float currentAngle = 180;
-            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-                float sweepAngle = 360 * chartValues[c];
-                if (sweepAngle < 0.001f) {
-                    continue;
-                }
-                int percentage = (int) (100 * chartValues[c]);
-                drawRect.left = centerX - baseRadius;
-                drawRect.top = centerY - baseRadius;
-                drawRect.right = centerX + baseRadius;
-                drawRect.bottom = centerY + baseRadius;
-                float midAngle = (float) Math.toRadians(currentAngle + sweepAngle / 2);
-                float valueDistance = baseRadius * Math.max(0.5f, 0.8f - 0.3f * sweepAngle / 180);
-                if (c == selectedItem) {
+            drawRect.left = centerX - baseRadius;
+            drawRect.top = centerY - baseRadius;
+            drawRect.right = centerX + baseRadius;
+            drawRect.bottom = centerY + baseRadius;
+            float midAngle = (float) Math.toRadians(currentAngle + sweepAngle / 2);
+            float valueDistance = baseRadius * Math.max(0.4f, 0.7f - 0.3f * sweepAngle / 180);
+            if (sweepAngle < 360) {
+                if (selected) {
                     float dp8 = GeneralUtils.dp2px(getContext(), 8);
                     valueDistance += dp8;
                     drawRect.offset((float) (dp8 * Math.cos(midAngle)), (float) (dp8 * Math.sin(midAngle)));
                 }
-                canvas.drawArc(drawRect, currentAngle, sweepAngle + (c == selectedItem || c == selectedItem - 1 ? 0f : 1f), true, chartPaints[c]);
-                if (sweepAngle > 2) {
-                    float fontHeight = GeneralUtils.sp2px(getContext(), minTextSizeSp + (maxTextSizeSp - minTextSizeSp) * (sweepAngle - 5) / 360);
-                    valuePaint.setTextSize(fontHeight);
-                    float valueX = (float) (centerX + valueDistance * Math.cos(midAngle));
-                    float valueY = (float) (centerY + valueDistance * Math.sin(midAngle));
-                    String text = String.format(Locale.getDefault(), "%d%%", percentage);
-                    Rect rect = new Rect();
-                    valuePaint.getTextBounds(text, 0, text.length(), rect);
-                    canvas.drawText(text, valueX, valueY - rect.centerY(), valuePaint);
+            } else {
+                valueDistance = 0;
+            }
+            if (canvas != null) {
+                canvas.drawArc(
+                        drawRect,
+                        currentAngle,
+                        sweepAngle + (item == selectedItem || item == selectedItem - 1 ? 0f : 1f),
+                        true,
+                        chartPaints[item]
+                );
+            }
+            float fontHeight = GeneralUtils.sp2px(getContext(), minTextSizeSp + (maxTextSizeSp - minTextSizeSp) * (sweepAngle - 5) / 360);
+            valuePaint.setTextSize(fontHeight);
+            float valueX = (float) (centerX + valueDistance * Math.cos(midAngle));
+            float valueY = (float) (centerY + valueDistance * Math.sin(midAngle));
+            String text = String.format(Locale.getDefault(), "%d%%", percentage);
+            valuePaint.getTextBounds(text, 0, text.length(), textRect);
+            textRect.offset((int) valueX - textRect.centerX(), (int) valueY - textRect.centerY());
+            if (canvas != null && sweepAngle > 3) {
+                canvas.drawText(text, textRect.left, textRect.bottom, valuePaint);
+            }
+            if (selected) {
+                suggestedHintX = textRect.centerX();
+                if (currentAngle + sweepAngle / 2 >= 360) {
+                    suggestedHintY = textRect.bottom + GeneralUtils.dp2px(getContext(), 36);
+                } else {
+                    suggestedHintY = textRect.top - GeneralUtils.dp2px(getContext(), 36);
                 }
+            }
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            float currentAngle = 180;
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                float sweepAngle = 360 * chartValues[c];
+                int percentage = (int) (100 * chartValues[c]);
+                drawWedgeCaption(canvas, c == selectedItem, c, percentage, currentAngle, sweepAngle);
                 currentAngle += sweepAngle;
             }
         }
@@ -236,19 +257,31 @@ public class ChartView extends View implements RangeListener {
         public void selectNearest(float screenX, float screenY, float searchSize) {
             float centerX = leftGridOffset + gridWidth / 2;
             float centerY = topGridOffset + gridHeight / 2;
-            if (screenY == centerY) {
+            if (screenY == centerY && screenX == centerX) {
                 return;
             }
             float touchDegrees = (float) Math.toDegrees(Math.atan2(screenY - centerY, screenX - centerX)) + 360f;
-            float hintRadius = Math.min(centerX, centerY) * 0.9f;
 
             float currentAngle = 180;
             for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
                 float sweepAngle = 360 * chartValues[c];
                 if (touchDegrees > currentAngle && touchDegrees < currentAngle + sweepAngle) {
-                    suggestedHintX = (float) (centerX + hintRadius * Math.cos(Math.toRadians(currentAngle + sweepAngle / 2)));
-                    suggestedHintY = (float) (centerY + hintRadius * Math.sin(Math.toRadians(currentAngle + sweepAngle / 2)));
+                    drawWedgeCaption(null, true, c, 100, currentAngle, sweepAngle);
                     setSelectedItem(c);
+                    break;
+                }
+                currentAngle += sweepAngle;
+            }
+        }
+
+        public void updateSuggestedHintPosition() {
+            // TODO refactor this method, try to remove duplication with selectNearest
+            float currentAngle = 180;
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                float sweepAngle = 360 * chartValues[c];
+                if (c == selectedItem) {
+                    // draw with null canvas -> just update suggested hint position
+                    drawWedgeCaption(null, true, c, 100, currentAngle, sweepAngle);
                     break;
                 }
                 currentAngle += sweepAngle;
@@ -1081,13 +1114,11 @@ public class ChartView extends View implements RangeListener {
                 @Override
                 public void onCancel() {
                     chartAnimator = null;
-                    if (type.equals(ColumnType.PIE) && selectedItem > -1 && visibleLineColumnSources.get(selectedItem) == animatingColumn) {
-                        selectedItem = -1;
-                    }
                     animatingColumn = null;
-                    updateColumns(); // invisible column will finally be removed from visibleLineColumnSources
-                    updateHint();
+                    // invisible column will now finally be removed from visibleLineColumnSources
+                    updateColumns();
                     updateChart(true);
+                    updateHint();
                 }
 
                 @Override
@@ -1095,7 +1126,6 @@ public class ChartView extends View implements RangeListener {
                     vertGridPainter.animateFrame();
                     horzGridPainter.animateFrame();
                     animatingColumnOpacity = chartAnimator.getFloatValue(ANIMATE_ALPHA);
-                    updateHint();
                     if (!topBoundFixed) {
                         topBound = chartAnimator.getFloatValue(ANIMATE_TOP_BOUND);
                     }
@@ -1104,6 +1134,7 @@ public class ChartView extends View implements RangeListener {
                     }
                     updateGridOffsets();
                     updateChart(false);
+                    updateHint();
                 }
             });
             chartAnimator.start();
@@ -1173,7 +1204,7 @@ public class ChartView extends View implements RangeListener {
         setFingerSize(GeneralUtils.dp2px(getContext(), 24));
         setAnimationSpeed(300);
         setHintShadowColor(0x30000000);
-        setHintShadowRadius(GeneralUtils.dp2px(getContext(), 2));
+        setHintShadowRadius(GeneralUtils.dp2px(getContext(), 2.5f));
         setHintBorderRadius(GeneralUtils.dp2px(getContext(), 4));
         setGesturesEnabled(true);
         updateGridOffsets();
@@ -1399,6 +1430,11 @@ public class ChartView extends View implements RangeListener {
     }
 
     private void updateColumns() {
+        ColumnDataSource restoreSelectedColumn = null;
+        if (type.equals(ColumnType.PIE) && selectedItem > -1) {
+            restoreSelectedColumn = visibleLineColumnSources.get(selectedItem);
+        }
+
         visibleLineColumnSources.clear();
         for (int column = 0; column < chartDataSource.getColumnsCount(); ++column) {
             ColumnDataSource columnDataSource = chartDataSource.getColumn(column);
@@ -1412,7 +1448,10 @@ public class ChartView extends View implements RangeListener {
         xColumnSource = chartDataSource.getColumn(chartDataSource.getXAxisValueSourceColumn());
         yLeftColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.LEFT));
         yRightColumnSource = chartDataSource.getColumn(chartDataSource.getYAxisValueSourceColumn(ChartDataSource.YAxis.RIGHT));
-        updateHint();
+
+        if (type.equals(ColumnType.PIE) && restoreSelectedColumn != null) {
+            selectedItem = visibleLineColumnSources.indexOf(restoreSelectedColumn);
+        }
         invalidate();
     }
 
@@ -1516,7 +1555,11 @@ public class ChartView extends View implements RangeListener {
         updateGridOffsets();
         if (animation) {
             startRangeAnimation();
-            placeHint();
+            if (type.equals(ColumnType.PIE)) {
+                updateHint();
+            } else {
+                placeHint();
+            }
         }
     }
 
@@ -1547,8 +1590,8 @@ public class ChartView extends View implements RangeListener {
 
     public void update() {
         updateColumns();
-        updateHint();
         updateChart(true);
+        updateHint();
     }
 
     private float gridRound(float value) {
@@ -1715,6 +1758,8 @@ public class ChartView extends View implements RangeListener {
         final float hintHeight = hintBitmap.getHeight();
 
         if (type.equals(ColumnType.PIE)) {
+            ((PieChartPainter) chartPainter).updateSuggestedHintPosition();
+
             hintLeft = ((PieChartPainter) chartPainter).suggestedHintX - hintWidth / 2;
             hintTop = ((PieChartPainter) chartPainter).suggestedHintY - hintHeight / 2;
             if (selectedItem > -1 && hintState == HINT_INVISIBLE) {
