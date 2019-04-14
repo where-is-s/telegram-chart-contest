@@ -28,6 +28,8 @@ import contest.datasource.ChartDataSource;
 import contest.datasource.SimpleChartDataSource;
 import contest.utils.GeneralUtils;
 import contest.view.ChartGroup;
+import contest.view.BaseDetailsChartGroup;
+import contest.view.ThreeDayDetailsChartGroup;
 import contest.view.WeekDetailsChartGroup;
 import telegram.contest.chart.R;
 
@@ -59,9 +61,14 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(LinearLayout.VERTICAL);
 
         chartGroups.clear();
-        addDetailsChartGroup(Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
-        addDetailsChartGroup(Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
-        addDetailsChartGroup(Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
+        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+                Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
+        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+                Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
+        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+                Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
+        addDetailsChartGroup(new ThreeDayDetailsChartGroup(this),
+                Data_4.chartDataSource, Data_4b.class.getSimpleName(), Data_4b.chartDataSource);
 
         settingsLayout = new LinearLayout(this);
         settingsLayout.setOrientation(LinearLayout.VERTICAL);
@@ -119,11 +126,10 @@ public class MainActivity extends Activity {
         setContentView(scrollView);
     }
 
-    private void addDetailsChartGroup(ChartDataSource mainDataSource, String assetBaseName, SimpleChartDataSource detailsDataSource) {
-        WeekDetailsChartGroup chartGroup = new WeekDetailsChartGroup(this);
-        chartGroup.setHeaderText("Chart #" + (chartGroups.size() + 1));
-        chartGroup.setChartDataSource(mainDataSource, assetBaseName, detailsDataSource);
-        linearLayout.addView(chartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    private void addDetailsChartGroup(BaseDetailsChartGroup detailsChartGroup, ChartDataSource mainDataSource, String assetBaseName, SimpleChartDataSource detailsDataSource) {
+        detailsChartGroup.setHeaderText("Chart #" + (chartGroups.size() + 1));
+        detailsChartGroup.setChartDataSource(mainDataSource, assetBaseName, detailsDataSource);
+        linearLayout.addView(detailsChartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         addSpacer(linearLayout);
     }
 

@@ -48,4 +48,8 @@ public abstract class BaseColumnDataSource implements ColumnDataSource {
         this.values = values;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
 }

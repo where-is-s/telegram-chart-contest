@@ -1685,6 +1685,7 @@ public class ChartView extends View implements RangeListener {
             }
             calculatedHintWidth = 0;
             calculatedHintHeight = 0;
+            hintState = HINT_INVISIBLE;
             return;
         }
 

@@ -3,6 +3,7 @@ package contest.view;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -14,7 +15,6 @@ import java.util.List;
 
 import contest.datasource.ChartDataSource;
 import contest.datasource.ColumnDataSource;
-import contest.datasource.ColumnType;
 import contest.utils.GeneralUtils;
 
 /**
@@ -31,8 +31,12 @@ public class ChartLegendView extends LinearLayout {
 
         @Override
         public void onLongTap(LegendCheckBox tappedCheckBox, boolean isChecked) {
+            chartDataSource.setColumnVisibility((Integer) tappedCheckBox.getTag(), true);
             for (LegendCheckBox checkBox: checkBoxes) {
-                chartDataSource.setColumnVisibility((Integer) checkBox.getTag(), checkBox == tappedCheckBox);
+                int c = (Integer) checkBox.getTag();
+                if (chartDataSource.isColumnVisible(c) && checkBox != tappedCheckBox) {
+                    chartDataSource.setColumnVisibility(c, false);
+                }
             }
         }
     };
@@ -88,12 +92,12 @@ public class ChartLegendView extends LinearLayout {
         update();
     }
 
-    private void update() {
+    public void update() {
         checkBoxes.clear();
 
         for (int c = 0; c < chartDataSource.getColumnsCount(); c++) {
             ColumnDataSource columnDataSource = chartDataSource.getColumn(c);
-            if (!columnDataSource.getType().equals(ColumnType.LINE)) {
+            if (TextUtils.isEmpty(columnDataSource.getName())) {
                 continue;
             }
 
@@ -113,13 +117,10 @@ public class ChartLegendView extends LinearLayout {
     }
 
     @Override
-    protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        if (!changed) {
-            super.onLayout(changed, l, t, r, b);
-            return;
-        }
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
-        int width = r - l - getPaddingLeft() - getPaddingRight();
+        int width = getMeasuredWidth() - getPaddingLeft() - getPaddingRight();
 
         removeAllViews();
         for (LegendCheckBox checkBox: checkBoxes) {
@@ -150,6 +151,6 @@ public class ChartLegendView extends LinearLayout {
             currentWidth += checkBox.getMeasuredWidth();
         }
 
-        requestLayout();
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
 }

@@ -15,7 +15,7 @@ import contest.datasource.TimeColumnDataSource;
  */
 public class Data_3b {
     public static final SimpleChartDataSource chartDataSource = new SimpleChartDataSource(ChartType.BAR_STACK, false, Arrays.<ColumnDataSource>asList(
-            new TimeColumnDataSource(ColumnType.X, "undefined", 0, new long[] {}),
+            new TimeColumnDataSource(ColumnType.X, "", 0, new long[] {}),
             new IntegerColumnDataSource(ChartDataSource.YAxis.LEFT, ColumnType.LINE, "Apples", 0xFF3497ED, new long[] {}),
             new IntegerColumnDataSource(ChartDataSource.YAxis.LEFT, ColumnType.LINE, "Oranges", 0xFF2373DB, new long[] {}),
             new IntegerColumnDataSource(ChartDataSource.YAxis.LEFT, ColumnType.LINE, "Lemons", 0xFF9ED448, new long[] {}),

@@ -108,6 +108,9 @@ public class ChartNavigationView extends View implements RangeListener {
 
         @Override
         public void onSetColumnVisibility(int column, boolean visible) {
+            if (getVisibility() == GONE) {
+                return;
+            }
             if (chartsAnimator != null) {
                 chartsAnimator.cancel();
             }

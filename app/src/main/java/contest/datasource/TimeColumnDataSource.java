@@ -13,20 +13,25 @@ public class TimeColumnDataSource extends BaseColumnDataSource {
 
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault());
+    private final SimpleDateFormat legendFormat = new SimpleDateFormat("d MMM", Locale.getDefault());
 
     public TimeColumnDataSource(ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);
         TimeZone utc = TimeZone.getTimeZone("UTC");
         timeFormat.setTimeZone(utc);
         dateFormat.setTimeZone(utc);
+        legendFormat.setTimeZone(utc);
     }
 
     @Override
     public String formatValue(long value, ValueFormatType valueFormatType) {
-        if (valueFormatType.equals(ValueFormatType.RANGE_TITLE)) {
-            return String.valueOf(dateFormat.format(new Date(value)));
-        } else {
-            return String.valueOf(timeFormat.format(new Date(value)));
+        switch (valueFormatType) {
+            case LEGEND:
+                return legendFormat.format(new Date(value));
+            case RANGE_TITLE:
+                return dateFormat.format(new Date(value));
+            default:
+                return timeFormat.format(new Date(value));
         }
     }
 

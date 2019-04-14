@@ -47,6 +47,8 @@ public class BinaryUtils {
             }
             if (dateArray[i] <= endTimeInt) {
                 end = i;
+            } else {
+                break;
             }
             if (dateArray[i] >= beginTimeInt && dateArray[i] <= endTimeInt) {
                 dateArray[i] *= 1000L; // convert back to milliseconds
