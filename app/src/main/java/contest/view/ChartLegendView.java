@@ -28,6 +28,13 @@ public class ChartLegendView extends LinearLayout {
         public void onCheckedChanged(LegendCheckBox checkBox, boolean isChecked) {
             chartDataSource.setColumnVisibility((Integer) checkBox.getTag(), isChecked);
         }
+
+        @Override
+        public void onLongTap(LegendCheckBox tappedCheckBox, boolean isChecked) {
+            for (LegendCheckBox checkBox: checkBoxes) {
+                chartDataSource.setColumnVisibility((Integer) checkBox.getTag(), checkBox == tappedCheckBox);
+            }
+        }
     };
     private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
         @Override

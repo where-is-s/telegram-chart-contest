@@ -23,6 +23,7 @@ public class LegendCheckBox extends View {
 
     public interface Listener {
         void onCheckedChanged(LegendCheckBox checkBox, boolean isChecked);
+        void onLongTap(LegendCheckBox checkBox, boolean isChecked);
     }
 
     private Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -78,6 +79,16 @@ public class LegendCheckBox extends View {
                     listener.onCheckedChanged(LegendCheckBox.this, isChecked());
                 }
                 invalidate();
+            }
+        });
+        setOnLongClickListener(new OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if (listener != null) {
+                    listener.onLongTap(LegendCheckBox.this, isChecked());
+                }
+                invalidate();
+                return true;
             }
         });
     }
