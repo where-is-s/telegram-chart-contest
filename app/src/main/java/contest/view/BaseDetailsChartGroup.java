@@ -22,18 +22,18 @@ import contest.utils.SimpleAnimator;
  */
 public abstract class BaseDetailsChartGroup extends FrameLayout implements ChartView.DetailsListener {
 
-    private static final int ANIMATE_MAIN_CENTER = 1;
-    private static final int ANIMATE_MAIN_WIDTH = 2;
-    private static final int ANIMATE_DETAILS_ALPHA = 3;
-    private static final int ANIMATE_MAIN_ALPHA = 4;
-    private static final int ANIMATE_DETAILS_LEFT = 5;
-    private static final int ANIMATE_DETAILS_RIGHT = 6;
+    static final int ANIMATE_MAIN_CENTER = 1;
+    static final int ANIMATE_MAIN_WIDTH = 2;
+    static final int ANIMATE_DETAILS_ALPHA = 3;
+    static final int ANIMATE_MAIN_ALPHA = 4;
+    static final int ANIMATE_DETAILS_LEFT = 5;
+    static final int ANIMATE_DETAILS_RIGHT = 6;
 
     ChartGroup mainChartGroup;
     ChartGroup detailsChartGroup;
     String assetBaseName;
     ChartDataSource mainDataSource;
-    SimpleChartDataSource detailsDataSource;
+    ChartDataSource detailsDataSource;
     float mainSavedCenter;
     float mainSavedWidth;
 
@@ -67,7 +67,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
 
         detailsChartGroup = new ChartGroup(getContext());
         detailsChartGroup.setVisibility(INVISIBLE);
-        detailsChartGroup.setShortRangeText(true);
+        detailsChartGroup.setSingleRangeText(true);
         detailsChartGroup.setHeaderText("Zoom Out");
         detailsChartGroup.getChartView().setGesturesEnabled(false);
         detailsChartGroup.setHeaderClickListener(new OnClickListener() {
@@ -141,6 +141,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
         simpleAnimator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, getLeftDetailsRowToAnimateTo(), new LateDecelerateInterpolator(0.3f));
         simpleAnimator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, getRightDetailsRowToAnimateTo(), new LateDecelerateInterpolator(0.3f));
+        configureDetailsInAnimator(simpleAnimator);
         simpleAnimator.setDuration(400);
         final int savedSpeed = detailsChartGroup.getChartView().getAnimationSpeed();
         detailsChartGroup.getChartView().setAnimationSpeed(100); // for faster animation in the end
@@ -165,6 +166,11 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         simpleAnimator.start();
     }
 
+    protected void configureDetailsInAnimator(SimpleAnimator simpleAnimator) {
+    }
+    protected void configureDetailsOutAnimator(SimpleAnimator simpleAnimator) {
+    }
+
     protected void handleZoomOutClick() {
         mainChartGroup.setVisibility(VISIBLE);
         final SimpleAnimator simpleAnimator = new SimpleAnimator();
@@ -176,6 +182,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 0f, 1f, new LateLinearInterpolator(0.3f));
         simpleAnimator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
         simpleAnimator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
+        configureDetailsOutAnimator(simpleAnimator);
         simpleAnimator.setDuration(400);
         final int savedSpeed = mainChartGroup.getChartView().getAnimationSpeed();
         mainChartGroup.getChartView().setAnimationSpeed(100); // for faster animation in the end
@@ -198,6 +205,18 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
             }
         });
         simpleAnimator.start();
+    }
+
+    protected int floorIndexInArray(long value, long values[]) {
+        int idx = -1;
+        for (int i = 0; i < values.length; ++i) {
+            if (values[i] <= value) {
+                idx = i;
+            } else {
+                break;
+            }
+        }
+        return idx;
     }
 
 }

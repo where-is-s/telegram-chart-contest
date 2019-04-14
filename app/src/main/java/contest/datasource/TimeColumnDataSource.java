@@ -28,7 +28,7 @@ public class TimeColumnDataSource extends BaseColumnDataSource {
         switch (valueFormatType) {
             case LEGEND:
                 return legendFormat.format(new Date(value));
-            case RANGE_TITLE:
+            case RANGE_TITLE_LONG:
                 return dateFormat.format(new Date(value));
             default:
                 return timeFormat.format(new Date(value));

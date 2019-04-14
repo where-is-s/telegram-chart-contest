@@ -118,6 +118,7 @@ public class SimpleChartDataSource implements ChartDataSource {
         listeners.remove(listener);
     }
 
+    @Override
     public void updateRowsCount() {
         int maxRows = 0;
         for (ColumnDataSource column: columns) {

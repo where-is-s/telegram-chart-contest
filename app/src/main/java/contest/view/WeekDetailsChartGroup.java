@@ -8,6 +8,7 @@ import android.util.AttributeSet;
 import contest.datasource.BaseColumnDataSource;
 import contest.datasource.ColumnDataSource;
 import contest.utils.BinaryUtils;
+import contest.utils.Constants;
 
 /**
  * Created by Alex K on 19/03/2019.
@@ -38,7 +39,7 @@ public class WeekDetailsChartGroup extends BaseDetailsChartGroup {
     protected void init() {
         super.init();
         detailsChartGroup.getChartNavigationView().setAllowResizeWindow(false);
-        detailsChartGroup.getChartNavigationView().setSnapToXDistance(24 * 3600 * 1000L);
+        detailsChartGroup.getChartNavigationView().setSnapToXDistance(Constants.DAY_MS);
     }
 
     @Override
@@ -52,27 +53,19 @@ public class WeekDetailsChartGroup extends BaseDetailsChartGroup {
         long selectedDayTime = xColumn.getValue(row);
 
         long arrays[][] = BinaryUtils.readDataArrays(getContext(), assetBaseName, detailsDataSource.getColumnsCount(),
-                selectedDayTime - 3 * 24 * 3600 * 1000L, selectedDayTime + 4 * 24 * 3600 * 1000L);
+                selectedDayTime - 3 * Constants.DAY_MS, selectedDayTime + 4 * Constants.DAY_MS);
         for (int i = 0; i < detailsDataSource.getColumnsCount(); ++i) {
             ((BaseColumnDataSource) detailsDataSource.getColumn(i)).setValues(arrays[i]);
         }
-        leftRow = -1;
-        rightRow = -1;
-        long dateArray[] = arrays[0];
-        for (int i = 0; i < dateArray.length; ++i) {
-            if (dateArray[i] >= selectedDayTime && leftRow == -1) {
-                leftRow = i;
-            }
-            if (dateArray[i] >= selectedDayTime + 24 * 3600 * 1000L && rightRow == -1) {
-                rightRow = i - 1;
-            }
-        }
+        leftRow = floorIndexInArray(selectedDayTime, arrays[0]);
+        rightRow = floorIndexInArray(selectedDayTime + Constants.DAY_MS, arrays[0]);
         if (leftRow == -1) {
             leftRow = 0;
         }
         if (rightRow == -1) {
-            rightRow = dateArray.length - 1;
+            rightRow = arrays[0].length;
         }
+        rightRow--;
         detailsDataSource.updateRowsCount();
     }
 

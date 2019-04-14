@@ -28,7 +28,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
     private ChartView chartView;
     private ChartNavigationView chartNavigationView;
     private ChartLegendView chartLegendView;
-    private boolean shortRangeText;
+    private boolean singleRangeText;
 
     public ChartGroup(Context context) {
         super(context);
@@ -144,12 +144,17 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         ChartDataSource chartDataSource = chartView.getChartDataSource();
         int xAxisColumnIdx = chartDataSource.getXAxisValueSourceColumn();
         ColumnDataSource xAxisColumn = chartDataSource.getColumn(xAxisColumnIdx);
-        String left = xAxisColumn.formatValue(xAxisColumn.getValue((int) startRow), ValueFormatType.RANGE_TITLE);
-        String right = xAxisColumn.formatValue(xAxisColumn.getValue((int) endRow), ValueFormatType.RANGE_TITLE);
-        if (shortRangeText) {
+        if (singleRangeText) {
+            String left = xAxisColumn.formatValue(xAxisColumn.getValue((int) startRow), ValueFormatType.RANGE_TITLE_LONG);
             rangeText.setText(left);
         } else {
-            rangeText.setText(String.format("%s - %s", left, right));
+            String left = xAxisColumn.formatValue(xAxisColumn.getValue((int) startRow), ValueFormatType.RANGE_TITLE_SHORT);
+            String right = xAxisColumn.formatValue(xAxisColumn.getValue((int) endRow), ValueFormatType.RANGE_TITLE_SHORT);
+            if (left.equals(right)) {
+                rangeText.setText(xAxisColumn.formatValue(xAxisColumn.getValue((int) startRow), ValueFormatType.RANGE_TITLE_LONG));
+            } else {
+                rangeText.setText(String.format("%s - %s", left, right));
+            }
         }
 
     }
@@ -162,7 +167,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
     public void onStopDragging() {
     }
 
-    public void setShortRangeText(boolean shortRangeText) {
-        this.shortRangeText = shortRangeText;
+    public void setSingleRangeText(boolean singleRangeText) {
+        this.singleRangeText = singleRangeText;
     }
 }

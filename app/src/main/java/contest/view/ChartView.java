@@ -148,15 +148,16 @@ public class ChartView extends View implements RangeListener {
 
     class PieChartPainter implements ChartPainter {
 
-        float chartValues[] = new float[] {};
+        float drawValues[] = new float[] {};
         Paint chartPaints[] = new Paint[] {};
         RectF drawRect = new RectF();
         Rect textRect = new Rect();
         Paint valuePaint;
-        float minTextSizeSp = 16;
+        float minTextSizeSp = 12;
         float maxTextSizeSp = 36;
         float suggestedHintX;
         float suggestedHintY;
+        SimpleAnimator valuesAnimator;
 
         PieChartPainter() {
             valuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -167,10 +168,14 @@ public class ChartView extends View implements RangeListener {
 
         @Override
         public void update() {
+            doUpdate(animatingColumn == null);
+        }
+
+        private void doUpdate(boolean animate) {
             int lefterBound = getLefterBound();
             int righterBound = getRighterBound();
-            if (chartValues.length < visibleLineColumnSources.size()) {
-                chartValues = new float[visibleLineColumnSources.size()];
+            if (drawValues.length < visibleLineColumnSources.size()) {
+                drawValues = new float[visibleLineColumnSources.size()];
                 chartPaints = new Paint[visibleLineColumnSources.size()];
             }
 
@@ -184,24 +189,44 @@ public class ChartView extends View implements RangeListener {
                 chartPaints[c] = paint;
             }
 
+            if (valuesAnimator != null) {
+                valuesAnimator.cancel();
+            }
+            if (animate) {
+                valuesAnimator = new SimpleAnimator();
+                valuesAnimator.setDuration(animationSpeed / 2);
+            }
+
             int lineIdx = 0;
-            float totalValue = 0;
             for (ColumnDataSource columnDataSource: visibleLineColumnSources) {
                 long valuesFast[] = columnDataSource.getValues();
                 float multiplier = 1f;
                 if (columnDataSource == animatingColumn) {
                     multiplier = animatingColumnOpacity;
                 }
-                for (int row = 0; row < righterBound - lefterBound; ++row) {
-                    chartValues[lineIdx] += valuesFast[row + lefterBound] * multiplier;
-                    totalValue += valuesFast[row + lefterBound] * multiplier;
+                float targetValue = 0f;
+                for (int row = 0; row <= righterBound - lefterBound; ++row) {
+                    targetValue += valuesFast[row + lefterBound] * multiplier;
+                }
+                if (animate) {
+                    valuesAnimator.addValue(lineIdx, drawValues[lineIdx], targetValue);
+                } else {
+                    drawValues[lineIdx] = targetValue; // already animated!
                 }
                 lineIdx++;
             }
 
-            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-                chartValues[c] /= totalValue;
-                chartValues[c] = Math.max(0f, Math.min(1f, chartValues[c]));
+            if (animate) {
+                valuesAnimator.start();
+                valuesAnimator.setListener(new SimpleAnimator.Listener() {
+                    @Override
+                    public void onUpdate() {
+                        for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                            drawValues[c] = valuesAnimator.getFloatValue(c);
+                            invalidate();
+                        }
+                    }
+                });
             }
         }
 
@@ -215,7 +240,7 @@ public class ChartView extends View implements RangeListener {
             drawRect.right = centerX + baseRadius;
             drawRect.bottom = centerY + baseRadius;
             float midAngle = (float) Math.toRadians(currentAngle + sweepAngle / 2);
-            float valueDistance = baseRadius * Math.max(0.4f, 0.7f - 0.3f * sweepAngle / 180);
+            float valueDistance = baseRadius * Math.max(0.4f, 0.8f - 0.4f * sweepAngle / 180);
             if (sweepAngle < 360) {
                 if (selected) {
                     float dp8 = GeneralUtils.dp2px(getContext(), 8);
@@ -254,12 +279,21 @@ public class ChartView extends View implements RangeListener {
             }
         }
 
+        private float getDrawTotal() {
+            float drawTotal = 0;
+            for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
+                drawTotal += drawValues[c];
+            }
+            return drawTotal;
+        }
+
         @Override
         public void draw(Canvas canvas) {
             float currentAngle = 180;
+            float drawTotal = getDrawTotal();
             for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-                float sweepAngle = 360 * chartValues[c];
-                int percentage = (int) (100 * chartValues[c]);
+                float sweepAngle = 360 * drawValues[c] / drawTotal;
+                int percentage = (int) (100 * drawValues[c] / drawTotal);
                 drawWedgeCaption(canvas, c == selectedItem, c, percentage, currentAngle, sweepAngle);
                 currentAngle += sweepAngle;
             }
@@ -275,8 +309,9 @@ public class ChartView extends View implements RangeListener {
             float touchDegrees = (float) Math.toDegrees(Math.atan2(screenY - centerY, screenX - centerX)) + 360f;
 
             float currentAngle = 180;
+            float drawTotal = getDrawTotal();
             for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-                float sweepAngle = 360 * chartValues[c];
+                float sweepAngle = 360 * drawValues[c] / drawTotal;
                 if (touchDegrees > currentAngle && touchDegrees < currentAngle + sweepAngle) {
                     drawWedgeCaption(null, true, c, 100, currentAngle, sweepAngle);
                     setSelectedItem(c);
@@ -290,7 +325,7 @@ public class ChartView extends View implements RangeListener {
             // TODO refactor this method, try to remove duplication with selectNearest
             float currentAngle = 180;
             for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-                float sweepAngle = 360 * chartValues[c];
+                float sweepAngle = 360 * drawValues[c] / getDrawTotal();
                 if (c == selectedItem) {
                     // draw with null canvas -> just update suggested hint position
                     drawWedgeCaption(null, true, c, 100, currentAngle, sweepAngle);
@@ -298,6 +333,10 @@ public class ChartView extends View implements RangeListener {
                 }
                 currentAngle += sweepAngle;
             }
+        }
+
+        public void onUpdateColumns() {
+            doUpdate(false);
         }
     }
 
@@ -1497,6 +1536,9 @@ public class ChartView extends View implements RangeListener {
         if (isChartType(ChartType.PIE) && restoreSelectedColumn != null) {
             selectedItem = visibleLineColumnSources.indexOf(restoreSelectedColumn);
         }
+        if (isChartType(ChartType.PIE)) {
+            ((PieChartPainter) chartPainter).onUpdateColumns();
+        }
         invalidate();
     }
 
@@ -1703,7 +1745,7 @@ public class ChartView extends View implements RangeListener {
             int righterBound = getRighterBound();
             long sum = 0;
             long valuesFast[] = selectedColumn.getValues();
-            for (int r = lefterBound; r < righterBound; ++r) {
+            for (int r = lefterBound; r <= righterBound; ++r) {
                 sum += valuesFast[r];
             }
             hintPieValue = sum;

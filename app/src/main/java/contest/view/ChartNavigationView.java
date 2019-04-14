@@ -340,23 +340,23 @@ public class ChartNavigationView extends View implements RangeListener {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        float windowLeft = gridToScreenX(windowLeftRow);
-        float windowRight = gridToScreenX(windowRightRow);
+        float windowLeft = getWindowLeft();
+        float windowRight = getWindowRight();
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 touchBeginX = event.getX();
                 touchBeginY = event.getY();
                 mightCancelDrag = true;
-                if (event.getX() > windowLeft && event.getX() < windowRight
+                if (event.getX() > windowLeft + windowVerticalFrameSize && event.getX() < windowRight - windowVerticalFrameSize
                         || (!allowResizeWindow && event.getX() > windowLeft - fingerSize / 2 && event.getX() < windowRight + fingerSize / 2)) {
                     setDragMode(DRAG_WINDOW);
-                    dragOffset = event.getX() - windowLeft;
-                } else if (allowResizeWindow && event.getX() > windowLeft - fingerSize && event.getX() < windowLeft) {
+                    dragOffset = event.getX() - gridToScreenX(windowLeftRow);
+                } else if (allowResizeWindow && event.getX() > windowLeft + windowVerticalFrameSize - fingerSize && event.getX() < windowLeft + windowVerticalFrameSize) {
                     setDragMode(DRAG_LEFT);
-                    dragOffset = event.getX() - windowLeft;
-                } else if (allowResizeWindow && event.getX() > windowRight && event.getX() < windowRight + fingerSize) {
+                    dragOffset = event.getX() - gridToScreenX(windowLeftRow);
+                } else if (allowResizeWindow && event.getX() > windowRight - windowVerticalFrameSize && event.getX() < windowRight - windowVerticalFrameSize + fingerSize) {
                     setDragMode(DRAG_RIGHT);
-                    dragOffset = event.getX() - windowRight;
+                    dragOffset = event.getX() - gridToScreenX(windowRightRow);
                 } else {
                     setDragMode(DRAG_NONE);
                     return false;
@@ -364,13 +364,33 @@ public class ChartNavigationView extends View implements RangeListener {
                 return true;
             case MotionEvent.ACTION_MOVE:
                 switch (dragMode) {
-                    case DRAG_LEFT:
-                        windowLeftRow = Math.max(0, Math.min(windowRightRow - windowSizeMinRows, screenToGridX(event.getX() - dragOffset)));
+                    case DRAG_LEFT: {
+                        float newWindowLeftRow = screenToGridX(event.getX() - dragOffset);
+                        if (snapToXDistance < 0) {
+                            windowLeftRow = Math.max(0, Math.min(windowRightRow - windowSizeMinRows, newWindowLeftRow));
+                        } else {
+                            float snapLeftRow = snapToNearestRow(newWindowLeftRow);
+                            if (windowAnimator == null &&
+                                    (snapLeftRow < windowRightRow || (windowRightRow == snapLeftRow && isChartType(ChartType.PIE)))) {
+                                animateTo(snapLeftRow, windowRightRow);
+                            }
+                        }
                         break;
-                    case DRAG_RIGHT:
-                        windowRightRow = Math.min(chartDataSource.getRowsCount() - 1, Math.max(windowLeftRow + windowSizeMinRows, screenToGridX(event.getX() - dragOffset)));
+                    }
+                    case DRAG_RIGHT: {
+                        float newWindowRightRow = screenToGridX(event.getX() - dragOffset);
+                        if (snapToXDistance < 0) {
+                            windowRightRow = Math.min(chartDataSource.getRowsCount() - 1, Math.max(windowLeftRow + windowSizeMinRows, newWindowRightRow));
+                        } else {
+                            float snapRightRow = snapToNearestRow(newWindowRightRow);
+                            if (windowAnimator == null &&
+                                    (snapRightRow > windowLeftRow || (snapRightRow == windowLeftRow && isChartType(ChartType.PIE)))) {
+                                animateTo(windowLeftRow, snapRightRow);
+                            }
+                        }
                         break;
-                    case DRAG_WINDOW:
+                    }
+                    case DRAG_WINDOW: {
                         float windowSizeRows = windowRightRow - windowLeftRow;
                         float newWindowLeftRow = screenToGridX(event.getX() - dragOffset);
                         if (snapToXDistance < 0) {
@@ -379,13 +399,19 @@ public class ChartNavigationView extends View implements RangeListener {
                         } else {
                             float snapLeftRow = snapToNearestRow(newWindowLeftRow);
                             if (snapLeftRow != windowLeftRow && snapLeftRow < chartDataSource.getRowsCount() && windowAnimator == null) {
-                                float snapRightRow = snapToNearestRow(snapLeftRow + windowSizeRows) - 1;
-                                if (snapRightRow > snapLeftRow) {
+                                float snapRightRow = snapToNearestRow(snapLeftRow + windowSizeRows);
+                                if (!isChartType(ChartType.PIE)) {
+                                    snapRightRow--;
+                                }
+                                float newWindowSize = snapRightRow - snapLeftRow;
+                                if (newWindowSize == windowSizeRows
+                                        && (snapRightRow > snapLeftRow || (snapRightRow == snapLeftRow && isChartType(ChartType.PIE)))) {
                                     animateTo(snapLeftRow, snapRightRow);
                                 }
                             }
                         }
                         break;
+                    }
                     case DRAG_NONE:
                     default:
                         return false;
@@ -547,7 +573,7 @@ public class ChartNavigationView extends View implements RangeListener {
             paint.setStrokeCap(Paint.Cap.BUTT);
             paint.setStyle(Paint.Style.STROKE);
 
-            float lines[] = new float[4 * (chartDataSource.getRowsCount() - 1)];
+            float lines[] = new float[4 * chartDataSource.getRowsCount()];
             float gridBottom = gridHeight;
             float firstX = gridToScreenX(0) + gridStepX / 2 - leftGridOffset;
             boolean first = true;
@@ -560,7 +586,7 @@ public class ChartNavigationView extends View implements RangeListener {
                 paint.setStrokeWidth(gridStepX + 1f);
                 if (first) {
                     first = false;
-                    for (int row = 0; row < chartDataSource.getRowsCount() - 1; ++row) {
+                    for (int row = 0; row < chartDataSource.getRowsCount(); ++row) {
                         int offset = 4 * row;
                         lines[offset] = row == 0 ? firstX : (lines[offset + 2 - 4] + fixedGridStepX);
                         lines[offset + 1] = gridHeight + bottomBound * gridStepY - multiplier * valuesFast[row];
@@ -568,7 +594,7 @@ public class ChartNavigationView extends View implements RangeListener {
                         lines[offset + 3] = gridBottom;
                     }
                 } else {
-                    for (int row = 0; row < chartDataSource.getRowsCount() - 1; ++row) {
+                    for (int row = 0; row < chartDataSource.getRowsCount(); ++row) {
                         int offset = 4 * row;
                         lines[offset] = lines[offset];
                         lines[offset + 2] = lines[offset];
@@ -681,6 +707,22 @@ public class ChartNavigationView extends View implements RangeListener {
                 paint);
     }
 
+    private float getWindowLeft() {
+        float windowLeft = gridToScreenX(windowLeftRow);
+        if (isChartType(ChartType.PIE)) {
+            windowLeft = windowLeft - gridStepX * windowLeftRow / (chartDataSource.getRowsCount() - 1);
+        }
+        return windowLeft;
+    }
+
+    private float getWindowRight() {
+        float windowRight = gridToScreenX(windowRightRow);
+        if (isChartType(ChartType.PIE)) {
+            windowRight = windowRight + gridStepX - gridStepX * windowRightRow / (chartDataSource.getRowsCount() - 1);
+        }
+        return windowRight;
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         if (chartDataSource == null) {
@@ -705,8 +747,8 @@ public class ChartNavigationView extends View implements RangeListener {
             canvas.drawBitmap(currentChartBitmap, chartBitmapSrcRect, chartBitmapDstRect, chartBitmapPaint);
         }
 
-        float windowLeft = gridToScreenX(windowLeftRow);
-        float windowRight = gridToScreenX(windowRightRow);
+        float windowLeft = getWindowLeft();
+        float windowRight = getWindowRight();
         float top = topGridOffset; // - windowHorizontalFrameSize;
         float bottom = topGridOffset + gridHeight; // + windowHorizontalFrameSize;
 

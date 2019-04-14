@@ -5,6 +5,6 @@ package contest.datasource;
  */
 public enum ValueFormatType {
 
-    HORZ_GRID, VERT_GRID, HINT_TITLE, HINT_VALUE, RANGE_TITLE, LEGEND
+    HORZ_GRID, VERT_GRID, HINT_TITLE, HINT_VALUE, RANGE_TITLE_LONG, RANGE_TITLE_SHORT, LEGEND
 
 }

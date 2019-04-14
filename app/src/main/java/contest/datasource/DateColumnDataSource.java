@@ -14,6 +14,7 @@ public class DateColumnDataSource extends BaseColumnDataSource {
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d", Locale.getDefault());
     private final SimpleDateFormat dateFormatMedium = new SimpleDateFormat("d MMM yyyy", Locale.getDefault());
     private final SimpleDateFormat dateFormatLong = new SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault());
+    private final SimpleDateFormat dateFormatLonger = new SimpleDateFormat("EEEE, MMM d yyyy", Locale.getDefault());
 
     public DateColumnDataSource(ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);
@@ -28,7 +29,9 @@ public class DateColumnDataSource extends BaseColumnDataSource {
         switch (valueFormatType) {
             case HINT_TITLE:
                 return dateFormatLong.format(new Date(value));
-            case RANGE_TITLE:
+            case RANGE_TITLE_LONG:
+                return dateFormatLonger.format(new Date(value));
+            case RANGE_TITLE_SHORT:
                 return dateFormatMedium.format(new Date(value));
             default:
                 return dateFormat.format(new Date(value));

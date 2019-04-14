@@ -32,4 +32,6 @@ public interface ChartDataSource {
     void addListener(Listener listener);
     void removeListener(Listener listener);
 
+    void updateRowsCount();
+
 }

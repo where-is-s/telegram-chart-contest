@@ -19,7 +19,6 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,10 +26,9 @@ import java.util.List;
 import contest.datasource.ChartDataSource;
 import contest.datasource.SimpleChartDataSource;
 import contest.utils.GeneralUtils;
-import contest.view.ChartGroup;
 import contest.view.BaseDetailsChartGroup;
-import contest.view.ThreeDayDetailsChartGroup;
-import contest.view.WeekDetailsChartGroup;
+import contest.view.ChartGroup;
+import contest.view.PieDetailsChartGroup;
 import telegram.contest.chart.R;
 
 public class MainActivity extends Activity {
@@ -61,65 +59,43 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(LinearLayout.VERTICAL);
 
         chartGroups.clear();
-        addDetailsChartGroup(new WeekDetailsChartGroup(this),
-                Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
-        addDetailsChartGroup(new WeekDetailsChartGroup(this),
-                Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
-        addDetailsChartGroup(new WeekDetailsChartGroup(this),
-                Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
-        addDetailsChartGroup(new ThreeDayDetailsChartGroup(this),
-                Data_4.chartDataSource, Data_4b.class.getSimpleName(), Data_4b.chartDataSource);
+//        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+//                Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
+//        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+//                Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
+//        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+//                Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
+//        addDetailsChartGroup(new ThreeDayDetailsChartGroup(this),
+//                Data_4.chartDataSource, Data_4b.class.getSimpleName(), Data_4b.chartDataSource);
+        addDetailsChartGroup(new PieDetailsChartGroup(this),
+                Data_5.chartDataSource, null, Data_5b.chartDataSource);
 
-        settingsLayout = new LinearLayout(this);
-        settingsLayout.setOrientation(LinearLayout.VERTICAL);
-        int dp8 = GeneralUtils.dp2px(this, 8);
-        int dp16 = GeneralUtils.dp2px(this, 16);
-        settingsLayout.setPadding(dp16, dp16, dp16, dp8);
-        settingsLayout.setBackgroundColor(Color.WHITE);
-
-        TextView settingsHeader = new TextView(this);
-        settingsHeader.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        settingsHeader.setTextColor(0xff808080);
-        settingsHeader.setTypeface(GeneralUtils.getBoldTypeface());
-        settingsHeader.setPadding(0, dp8, dp16, dp8);
-        settingsHeader.setText("Settings");
-        settingsLayout.addView(settingsHeader, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        addSetting("Disable chart gestures", new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                for (ChartGroup chartGroup: chartGroups) {
-                    chartGroup.getChartView().setGesturesEnabled(!isChecked);
-                }
-            }
-        });
-        addSetting("Clip to padding", new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                for (ChartGroup chartGroup: chartGroups) {
-                    chartGroup.getChartView().setClipToPadding(isChecked);
-                }
-            }
-        });
-//        addSetting("Enable short formatting", new CompoundButton.OnCheckedChangeListener() {
+//        settingsLayout = new LinearLayout(this);
+//        settingsLayout.setOrientation(LinearLayout.VERTICAL);
+//        int dp8 = GeneralUtils.dp2px(this, 8);
+//        int dp16 = GeneralUtils.dp2px(this, 16);
+//        settingsLayout.setPadding(dp16, dp16, dp16, dp8);
+//        settingsLayout.setBackgroundColor(Color.WHITE);
+//
+//        TextView settingsHeader = new TextView(this);
+//        settingsHeader.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+//        settingsHeader.setTextColor(0xff808080);
+//        settingsHeader.setTypeface(GeneralUtils.getBoldTypeface());
+//        settingsHeader.setPadding(0, dp8, dp16, dp8);
+//        settingsHeader.setText("Settings");
+//        settingsLayout.addView(settingsHeader, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+//
+//        addSetting("Disable chart gestures", new CompoundButton.OnCheckedChangeListener() {
 //            @Override
 //            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-//                for (ChartDataSource chartDataSource: Data.chartDataSources) {
-//                    for (int c = 0; c < chartDataSource.getColumnsCount(); ++c) {
-//                        ColumnDataSource columnDataSource = chartDataSource.getColumn(c);
-//                        if (columnDataSource instanceof IntegerColumnDataSource) {
-//                            ((IntegerColumnDataSource) columnDataSource).setReadableFormatting(isChecked);
-//                        }
-//                    }
-//                }
 //                for (ChartGroup chartGroup: chartGroups) {
-//                    chartGroup.getChartView().update();
+//                    chartGroup.getChartView().setGesturesEnabled(!isChecked);
 //                }
 //            }
 //        });
 
-        linearLayout.addView(settingsLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        addSpacer(linearLayout);
+//        linearLayout.addView(settingsLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+//        addSpacer(linearLayout);
 
         scrollView.addView(linearLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
