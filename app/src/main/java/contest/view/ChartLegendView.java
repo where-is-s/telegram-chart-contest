@@ -15,7 +15,9 @@ import java.util.List;
 
 import contest.datasource.ChartDataSource;
 import contest.datasource.ColumnDataSource;
+import contest.datasource.ColumnType;
 import contest.utils.GeneralUtils;
+import contest.utils.SimpleAnimator;
 
 /**
  * Created by Alex K on 19/03/2019.
@@ -25,7 +27,33 @@ public class ChartLegendView extends LinearLayout {
     private ChartDataSource chartDataSource;
     private LegendCheckBox.Listener checkedChangeListener = new LegendCheckBox.Listener() {
         @Override
-        public void onCheckedChanged(LegendCheckBox checkBox, boolean isChecked) {
+        public void onCheckedChanged(final LegendCheckBox checkBox, boolean isChecked) {
+            if (!isChecked) {
+                // at least 1 column should be visible
+                boolean otherColumnsVisible = false;
+                for (int i = 0; i < chartDataSource.getColumnsCount(); ++i) {
+                    if (chartDataSource.getColumn(i).getType().equals(ColumnType.LINE) &&
+                            chartDataSource.isColumnVisible(i) && i != (Integer) checkBox.getTag()) {
+                        otherColumnsVisible = true;
+                        break;
+                    }
+                }
+                if (!otherColumnsVisible) {
+                    // prevent uncheck and show pretty animation
+                    final SimpleAnimator simpleAnimator = new SimpleAnimator();
+                    simpleAnimator.setDuration(300);
+                    final float moveTo = GeneralUtils.dp2px(getContext(), 4);
+                    simpleAnimator.setListener(new SimpleAnimator.Listener() {
+                        @Override
+                        public void onUpdate() {
+                            checkBox.setTranslationX(moveTo * (float) Math.sin(simpleAnimator.getFraction() * Math.PI * 4));
+                        }
+                    });
+                    simpleAnimator.start();
+                    checkBox.setChecked(true);
+                    return;
+                }
+            }
             chartDataSource.setColumnVisibility((Integer) checkBox.getTag(), isChecked);
         }
 
