@@ -12,7 +12,6 @@ import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.LongSparseArray;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -33,6 +32,7 @@ import contest.datasource.ChartType;
 import contest.datasource.ColumnDataSource;
 import contest.datasource.ColumnType;
 import contest.datasource.ValueFormatType;
+import contest.utils.CallTracker;
 import contest.utils.ChartUtils;
 import contest.utils.GeneralUtils;
 import contest.utils.LateLinearInterpolator;
@@ -760,7 +760,7 @@ public class ChartView extends View implements RangeListener {
                 animator.addValue(2 * i, (int) (line.alphaLeft + (line.destAlphaLeft - line.alphaLeft) * 0.1f), line.destAlphaLeft);
                 animator.addValue(2 * i + 1, (int) (line.alphaRight + (line.destAlphaRight - line.alphaRight) * 0.1f), line.destAlphaRight);
             }
-            animator.start();
+            animator.start(isAnimatingThroughUI);
         }
 
         @Override
@@ -912,7 +912,7 @@ public class ChartView extends View implements RangeListener {
                 }
                 animator.addValue(i, (int) (line.alpha + (line.destAlpha - line.alpha) * 0.1f), line.destAlpha);
             }
-            animator.start();
+            animator.start(isAnimatingThroughUI);
         }
 
         @Override
@@ -1018,6 +1018,7 @@ public class ChartView extends View implements RangeListener {
             if (isChartType(ChartType.PIE)) {
                 return false;
             }
+            isAnimatingThroughUI = true;
             float x = detector.getFocusX() / getMeasuredWidth();
             float center = leftBound + (rightBound - leftBound) * x;
             float width = (rightBound - leftBound) / (detector.getScaleFactor() * detector.getScaleFactor());
@@ -1036,6 +1037,7 @@ public class ChartView extends View implements RangeListener {
             if (isChartType(ChartType.PIE)) {
                 return false;
             }
+            isScaling = true;
             oldFocusX = detector.getFocusX();
             getParent().requestDisallowInterceptTouchEvent(true);
             return true;
@@ -1043,6 +1045,8 @@ public class ChartView extends View implements RangeListener {
 
         @Override
         public void onScaleEnd(ScaleGestureDetector detector) {
+            isScaling = false;
+            isAnimatingThroughUI = false;
         }
     });
     GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.OnGestureListener() {
@@ -1095,6 +1099,9 @@ public class ChartView extends View implements RangeListener {
             if (isChartType(ChartType.PIE)) {
                 return false;
             }
+            if (isScaling) {
+                return false;
+            }
             getParent().requestDisallowInterceptTouchEvent(true);
             if (!gesturesEnabled) {
                 chartPainter.selectNearest(e2.getX(), e2.getY(), 0);
@@ -1132,7 +1139,18 @@ public class ChartView extends View implements RangeListener {
             final float initialRightBound = rightBound;
             flingAnimator.setListener(new SimpleAnimator.Listener() {
                 @Override
+                public void onEnd() {
+                    isAnimatingThroughUI = false;
+                }
+
+                @Override
+                public void onCancel() {
+                    isAnimatingThroughUI = false;
+                }
+
+                @Override
                 public void onUpdate() {
+                    isAnimatingThroughUI = true;
                     float value = flingAnimator.getFloatValue(ANIMATE_VALUE);
                     float newLeftBound = Math.max(0, initialLeftBound + value);
                     float newRightBound = newLeftBound + initialRightBound - initialLeftBound;
@@ -1214,7 +1232,7 @@ public class ChartView extends View implements RangeListener {
                     }
                     updateGridOffsets();
                     updateChart(false);
-                    updateHint();
+//                    updateHint(); TODO !!!
                 }
             });
             chartAnimator.start();
@@ -1223,7 +1241,8 @@ public class ChartView extends View implements RangeListener {
 
     SimpleAnimator chartAnimator;
     SimpleAnimator hintAnimator;
-    boolean isDragging;
+    boolean isAnimatingThroughUI;
+    boolean isScaling;
 
     public ChartView(Context context) {
         super(context);
@@ -1439,8 +1458,12 @@ public class ChartView extends View implements RangeListener {
         gestureDetector.onTouchEvent(event);
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+                isAnimatingThroughUI = true;
                 touchBeginX = event.getX();
                 return true;
+            case MotionEvent.ACTION_UP:
+                isAnimatingThroughUI = false;
+                break;
             case MotionEvent.ACTION_MOVE:
                 if (event.getPointerCount() > 1 || (Math.abs(touchBeginX - event.getX()) > fingerSize / 2)) {
                     getParent().requestDisallowInterceptTouchEvent(true);
@@ -1650,17 +1673,9 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    int updatesPerSecond = 0;
-    long lastSecond = System.currentTimeMillis();
-
+    CallTracker updates = new CallTracker("updates");
     void updateChart(boolean reset) {
-        ++updatesPerSecond;
-        if (System.currentTimeMillis() > lastSecond + 1000) {
-            Log.i("ZZZ", "Updates/s: " + updatesPerSecond);
-            updatesPerSecond = 0;
-            lastSecond = System.currentTimeMillis();
-        }
-
+        updates.call();
         if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0 || chartDataSource == null) {
             return;
         }
@@ -1759,7 +1774,7 @@ public class ChartView extends View implements RangeListener {
                 bodyWidth += hintHorzMargin + hintDetailsBitmap.getWidth();
             }
             if (isChartType(ChartType.PERCENTAGE)) {
-                hintPercentageOffset = Math.max(GeneralUtils.dp2px(getContext(), 25), hintPercentagePaint.measureText("99%")) + hintHorzMargin / 3;
+                hintPercentageOffset = Math.max(GeneralUtils.dp2px(getContext(), 25), hintPercentagePaint.measureText("100%")) + hintHorzMargin / 4;
             } else {
                 hintPercentageOffset = 0;
             }
@@ -2008,7 +2023,7 @@ public class ChartView extends View implements RangeListener {
                 invalidate();
             }
         });
-        hintAnimator.start();
+        hintAnimator.start(isAnimatingThroughUI); // TODO
     }
 
     String formatGridValue(boolean left, float value) {
@@ -2035,10 +2050,10 @@ public class ChartView extends View implements RangeListener {
         chartPainter.draw(canvas);
 
         // draw vertical grid if needed
-        vertGridPainter.draw(canvas);
+//        vertGridPainter.draw(canvas);
 
         // draw horizontal grid if needed
-        horzGridPainter.draw(canvas);
+//        horzGridPainter.draw(canvas);
 
         // draw hint
         if (hintState != HINT_INVISIBLE) {
@@ -2052,7 +2067,7 @@ public class ChartView extends View implements RangeListener {
 
     @Override
     public void onRangeSelected(float startRow, float endRow) {
-        setBounds(startRow, endRow, isDragging);
+        setBounds(startRow, endRow, isAnimatingThroughUI);
     }
 
     void startRangeAnimation() {
@@ -2100,17 +2115,17 @@ public class ChartView extends View implements RangeListener {
                 updateChart(false);
             }
         });
-        chartAnimator.start();
+        chartAnimator.start(isAnimatingThroughUI);
     }
 
     @Override
     public void onStartDragging() {
-        isDragging = true;
+        isAnimatingThroughUI = true;
     }
 
     @Override
     public void onStopDragging() {
-        isDragging = false;
+        isAnimatingThroughUI = false;
         invalidate(); // redraw with high quality
     }
 

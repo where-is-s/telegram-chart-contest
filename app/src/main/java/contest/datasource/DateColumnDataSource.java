@@ -13,8 +13,8 @@ public class DateColumnDataSource extends BaseColumnDataSource {
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d", Locale.getDefault());
     private final SimpleDateFormat dateFormatMedium = new SimpleDateFormat("d MMM yyyy", Locale.getDefault());
-    private final SimpleDateFormat dateFormatLong = new SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault());
-    private final SimpleDateFormat dateFormatLonger = new SimpleDateFormat("EEEE, MMM d yyyy", Locale.getDefault());
+    private final SimpleDateFormat dateFormatLong = new SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault());
+    private final SimpleDateFormat dateFormatLonger = new SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault());
 
     public DateColumnDataSource(ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);

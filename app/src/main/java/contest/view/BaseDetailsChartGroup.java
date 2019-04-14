@@ -128,7 +128,6 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         detailsChartGroup.setChartDataSource(detailsDataSource);
         detailsChartGroup.getChartView().setSelectedItem(-1);
         detailsChartGroup.getChartLegendView().update();
-        detailsChartGroup.setVisibility(VISIBLE);
 
         final SimpleAnimator simpleAnimator = new SimpleAnimator();
         float mainLeftBound = mainChartGroup.getChartView().leftBound;
@@ -145,9 +144,13 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         simpleAnimator.setDuration(400);
         final int savedSpeed = detailsChartGroup.getChartView().getAnimationSpeed();
         detailsChartGroup.getChartView().setAnimationSpeed(100); // for faster animation in the end
+        mainChartGroup.getChartView().onStartDragging();
+        detailsChartGroup.getChartView().onStartDragging();
         simpleAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
             public void onEnd() {
+                mainChartGroup.getChartView().onStopDragging();
+                detailsChartGroup.getChartView().onStopDragging();
                 mainChartGroup.setVisibility(INVISIBLE);
                 detailsChartGroup.getChartView().setAnimationSpeed(savedSpeed);
             }
@@ -158,6 +161,9 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
                 float width = simpleAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
                 mainChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
                 mainChartGroup.getChartView().setBounds(center - width / 2, center + width / 2, true);
+                if (simpleAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA) > 0f) {
+                    detailsChartGroup.setVisibility(VISIBLE);
+                }
                 detailsChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
                 detailsChartGroup.getChartView().setBounds(simpleAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
                         simpleAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);

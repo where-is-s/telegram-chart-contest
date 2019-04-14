@@ -81,13 +81,13 @@ public class PieDetailsChartGroup extends BaseDetailsChartGroup {
 
     @Override
     protected void configureDetailsInAnimator(SimpleAnimator simpleAnimator) {
-        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.3f));
-        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.6f));
+        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.4f));
+        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
     }
 
     @Override
     protected void configureDetailsOutAnimator(SimpleAnimator simpleAnimator) {
-        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.3f));
-        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.6f));
+        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 1f, 0f, new LateLinearInterpolator(0.3f));
+        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 0f, 1f, new EarlyLinearInterpolator(0.6f));
     }
 }

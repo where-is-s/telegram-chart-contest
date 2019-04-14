@@ -12,6 +12,8 @@ import java.util.Map;
  */
 public class SimpleAnimator implements Choreographer.FrameCallback {
 
+    private boolean delayNext = false;
+
     public static abstract class Listener {
         public void onUpdate() {}
         public void onEnd() {}
@@ -88,10 +90,15 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
     }
 
     public void start() {
+        start(false);
+    }
+
+    public void start(boolean delayNext) {
         Choreographer.getInstance().removeFrameCallback(this);
         startTime = System.nanoTime();
         endTime = startTime + duration * 1000000L;
         running = true;
+        this.delayNext = delayNext;
         doFrame(startTime);
     }
 
@@ -150,11 +157,12 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
             stop();
         } else {
 //            TODO: optimize excessive callbacks when animating through UI events (using finger or another animation)
-//            if (fraction == 0f) {
-//                Choreographer.getInstance().postFrameCallbackDelayed(this, 20);
-//            } else {
-            Choreographer.getInstance().postFrameCallback(this);
-//            }
+            if (delayNext) {
+                delayNext = false;
+                Choreographer.getInstance().postFrameCallbackDelayed(this, 20);
+            } else {
+                Choreographer.getInstance().postFrameCallback(this);
+            }
         }
     }
 
