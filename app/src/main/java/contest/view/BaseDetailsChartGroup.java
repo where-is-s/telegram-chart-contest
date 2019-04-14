@@ -174,6 +174,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
 
     protected void configureDetailsInAnimator(SimpleAnimator simpleAnimator) {
     }
+
     protected void configureDetailsOutAnimator(SimpleAnimator simpleAnimator) {
     }
 

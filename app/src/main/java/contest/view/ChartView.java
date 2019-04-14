@@ -587,6 +587,7 @@ public class ChartView extends View implements RangeListener {
         Paint selectedLinePaint;
         Paint chartPaints[] = new Paint[] {};
         Path chartPaths[] = new Path[] {};
+        float[] bottoms = new float[] {}; // reducing size filled area allows to speed up drawPath
         int chartLinesLength;
 
         public PercentagePainter() {
@@ -605,6 +606,7 @@ public class ChartView extends View implements RangeListener {
             if (chartPaths.length < visibleLineColumnSources.size()) {
                 chartPaths = new Path[visibleLineColumnSources.size()];
                 chartPaints = new Paint[visibleLineColumnSources.size()];
+                bottoms = new float[visibleLineColumnSources.size()];
             }
             for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
                 Paint paint = chartPaints[c];
@@ -618,11 +620,9 @@ public class ChartView extends View implements RangeListener {
                 chartPaths[c].incReserve(righterBound - lefterBound + 10);
             }
 
-            float gridBottom = topGridOffset + gridHeight;
             float gridToScreenYFast = topGridOffset + gridHeight + bottomBound * gridStepY; // - gridY * gridStepY
 
             long fastValues[][] = new long[visibleLineColumnSources.size()][];
-            float bottoms[] = new float[visibleLineColumnSources.size()]; // reducing size filled area allows to speed up drawPath
             int i = 0;
             int animatingColumnIdx = -1;
             for (ColumnDataSource column: visibleLineColumnSources) {
@@ -648,6 +648,7 @@ public class ChartView extends View implements RangeListener {
                 for (int chartIdx = 0; chartIdx < fastValues.length - 1; ++chartIdx) {
                     float opacityMultiplier = chartIdx != animatingColumnIdx ? 1f : animatingColumnOpacity;
                     curValue -= fastValues[chartIdx][row + lefterBound] * opacityMultiplier / total * gridHeight;
+                    // TODO: optimize lines?
                     if (row == 0) {
                         chartPaths[chartIdx].moveTo(firstX, curValue);
                     } else {
@@ -660,7 +661,7 @@ public class ChartView extends View implements RangeListener {
             }
 
             for (int chartIdx = 0; chartIdx < fastValues.length - 1; ++chartIdx) {
-                float bottom = chartIdx == 0 ? gridBottom : bottoms[chartIdx - 1];
+                float bottom = chartIdx == 0 ? bottoms[0] : bottoms[chartIdx - 1];
                 chartPaths[chartIdx].lineTo(firstX + (righterBound - lefterBound) * gridStepX, bottom);
                 chartPaths[chartIdx].lineTo(firstX, bottom);
                 chartPaths[chartIdx].close();
@@ -672,11 +673,17 @@ public class ChartView extends View implements RangeListener {
             if (visibleLineColumnSources.isEmpty()) {
                 return;
             }
+
+            float gridBottom = topGridOffset + gridHeight;
+            // topmost part can be drawn as rectangle
             canvas.drawRect(gridToScreenX(getLefterBound()), topGridOffset, gridToScreenX(getRighterBound()),
-                    topGridOffset + gridHeight, chartPaints[visibleLineColumnSources.size() - 1]);
+                    visibleLineColumnSources.size() > 1 ? bottoms[visibleLineColumnSources.size() - 2] : gridBottom, chartPaints[visibleLineColumnSources.size() - 1]);
             for (int p = visibleLineColumnSources.size() - 2; p >= 0; --p) {
                 canvas.drawPath(chartPaths[p], chartPaints[p]);
             }
+            // draw big rectangle area of bottom-most part
+            canvas.drawRect(gridToScreenX(getLefterBound()), bottoms[0], gridToScreenX(getRighterBound()),
+                gridBottom, chartPaints[0]);
 
             // draw vertical line for selected row
             if (selectedItem > -1) {
@@ -829,12 +836,11 @@ public class ChartView extends View implements RangeListener {
                 float y = gridToScreenY(ChartDataSource.YAxis.LEFT, lines.keyAt(i));
                 float x2 = viewWidth - rightGridOffset;
 
-                int alpha = linePaint.getAlpha();
-                linePaint.setAlpha(alpha * Math.max(line.alphaLeft, line.alphaRight) / 255);
-                if (linePaint.getAlpha() != 0) {
+                int alpha = linePaint.getAlpha() * Math.max(line.alphaLeft, line.alphaRight) / 255;
+                if (alpha != 0) {
+                    linePaint.setAlpha(alpha);
                     canvas.drawLine(x1, y, x2, y, linePaint);
                 }
-                linePaint.setAlpha(alpha);
                 if (line.alphaLeft != 0) {
                     textPaint.setTextAlign(Paint.Align.LEFT);
                     textPaint.setColor(yRightColumnSource == null ? textColor : yLeftColumnSource.getColor());
@@ -936,7 +942,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
-            if (isChartType(ChartType.PIE) || chartDataSource == null) {
+            if (true || isChartType(ChartType.PIE) || chartDataSource == null) {
                 return;
             }
 
@@ -2050,10 +2056,10 @@ public class ChartView extends View implements RangeListener {
         chartPainter.draw(canvas);
 
         // draw vertical grid if needed
-//        vertGridPainter.draw(canvas);
+        vertGridPainter.draw(canvas);
 
         // draw horizontal grid if needed
-//        horzGridPainter.draw(canvas);
+        horzGridPainter.draw(canvas);
 
         // draw hint
         if (hintState != HINT_INVISIBLE) {
