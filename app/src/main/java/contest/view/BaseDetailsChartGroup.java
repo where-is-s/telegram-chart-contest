@@ -66,7 +66,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         addView(mainChartGroup, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         detailsChartGroup = new ChartGroup(getContext());
-        detailsChartGroup.setVisibility(GONE);
+        detailsChartGroup.setVisibility(INVISIBLE);
         detailsChartGroup.setShortRangeText(true);
         detailsChartGroup.setHeaderText("Zoom Out");
         detailsChartGroup.getChartView().setGesturesEnabled(false);
@@ -147,7 +147,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         simpleAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
             public void onEnd() {
-                mainChartGroup.setVisibility(GONE);
+                mainChartGroup.setVisibility(INVISIBLE);
                 detailsChartGroup.getChartView().setAnimationSpeed(savedSpeed);
             }
 
@@ -182,7 +182,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         simpleAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
             public void onEnd() {
-                detailsChartGroup.setVisibility(GONE);
+                detailsChartGroup.setVisibility(INVISIBLE);
                 mainChartGroup.getChartView().setAnimationSpeed(savedSpeed);
             }
 

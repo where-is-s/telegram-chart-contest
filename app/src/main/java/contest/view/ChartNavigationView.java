@@ -262,13 +262,17 @@ public class ChartNavigationView extends View implements RangeListener {
     }
 
     public void setTopBound(float bound) {
-        this.topBound = bound;
         this.topBoundFixed = !Float.isNaN(bound);
+        if (this.topBoundFixed) {
+            this.topBound = bound;
+        }
     }
 
     public void setBottomBound(float bound) {
-        this.bottomBound = bound;
         this.bottomBoundFixed = !Float.isNaN(bound);
+        if (this.bottomBoundFixed) {
+            this.bottomBound = bound;
+        }
     }
 
     private void calculateVerticalBounds() {
@@ -489,15 +493,17 @@ public class ChartNavigationView extends View implements RangeListener {
         bottomGridOffset = getPaddingBottom() + 2 * windowHorizontalFrameSize;
         gridWidth = getMeasuredWidth() - leftGridOffset - rightGridOffset;
         gridHeight = getMeasuredHeight() - topGridOffset - bottomGridOffset;
-        gridStepX = (chartDataSource.getRowsCount()) <= 1 ? 0 : gridWidth / (chartDataSource.getRowsCount() - 1);
-        gridStepY = (topBound - bottomBound) <= 1 ? 0 : gridHeight / (topBound - bottomBound);
+        if (chartDataSource != null) {
+            gridStepX = (chartDataSource.getRowsCount()) <= 1 ? 0 : gridWidth / (chartDataSource.getRowsCount() - 1);
+            gridStepY = (topBound - bottomBound) <= 1 ? 0 : gridHeight / (topBound - bottomBound);
+        }
     }
 
     public void update() {
         float viewWidth = getMeasuredWidth();
         float viewHeight = getMeasuredHeight();
 
-        if (viewWidth == 0 || viewHeight == 0) {
+        if (viewWidth == 0 || viewHeight == 0 || chartDataSource == null) {
             return;
         }
 
@@ -633,6 +639,7 @@ public class ChartNavigationView extends View implements RangeListener {
         setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),
                 getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));
 
+        calculateGridBounds();
         update();
         updateBitmaps();
     }

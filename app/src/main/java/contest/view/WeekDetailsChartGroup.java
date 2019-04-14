@@ -56,8 +56,8 @@ public class WeekDetailsChartGroup extends BaseDetailsChartGroup {
         for (int i = 0; i < detailsDataSource.getColumnsCount(); ++i) {
             ((BaseColumnDataSource) detailsDataSource.getColumn(i)).setValues(arrays[i]);
         }
-        int leftRow = -1;
-        int rightRow = -1;
+        leftRow = -1;
+        rightRow = -1;
         long dateArray[] = arrays[0];
         for (int i = 0; i < dateArray.length; ++i) {
             if (dateArray[i] >= selectedDayTime && leftRow == -1) {
@@ -68,10 +68,10 @@ public class WeekDetailsChartGroup extends BaseDetailsChartGroup {
             }
         }
         if (leftRow == -1) {
-            this.leftRow = 0;
+            leftRow = 0;
         }
         if (rightRow == -1) {
-            this.rightRow = dateArray.length - 1;
+            rightRow = dateArray.length - 1;
         }
         detailsDataSource.updateRowsCount();
     }

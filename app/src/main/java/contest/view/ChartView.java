@@ -746,7 +746,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
-            if (isChartType(ChartType.PIE)) {
+            if (isChartType(ChartType.PIE) || chartDataSource == null) {
                 return;
             }
 
@@ -897,7 +897,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
-            if (isChartType(ChartType.PIE)) {
+            if (isChartType(ChartType.PIE) || chartDataSource == null) {
                 return;
             }
 
@@ -1428,14 +1428,18 @@ public class ChartView extends View implements RangeListener {
     }
 
     public void setTopBound(float bound) {
-        this.topBound = bound;
         this.topBoundFixed = !Float.isNaN(bound);
+        if (this.topBoundFixed) {
+            this.topBound = bound;
+        }
         updateChart(true);
     }
 
     public void setBottomBound(float bound) {
-        this.bottomBound = bound;
         this.bottomBoundFixed = !Float.isNaN(bound);
+        if (this.bottomBoundFixed) {
+            this.bottomBound = bound;
+        }
         updateChart(true);
     }
 
@@ -1458,9 +1462,9 @@ public class ChartView extends View implements RangeListener {
                 chartPainter = new PieChartPainter();
                 break;
         }
+        updateColumns();
         updateChart(true);
         rightYAxisMultiplier = chartDataSource.getRightYAxisMultiplier();
-        updateColumns();
         chartDataSource.addListener(chartDataSourceListener);
         setBounds(0, chartDataSource.getRowsCount() - 1, false);
         updateChart(true);
@@ -1574,9 +1578,9 @@ public class ChartView extends View implements RangeListener {
         gridWidth = getMeasuredWidth() - leftGridOffset - rightGridOffset;
         gridHeight = getMeasuredHeight() - topGridOffset - bottomGridOffset;
         float valuesCount = (rightBound - leftBound);
-        gridStepX = valuesCount <= 1 ? 0 : gridWidth / valuesCount;
+        gridStepX = valuesCount <= 1 ? 0 : (gridWidth / valuesCount);
         valuesCount = (topBound - bottomBound);
-        gridStepY = valuesCount <= 1 ? 0 : gridHeight / valuesCount;
+        gridStepY = valuesCount <= 1 ? 0 : (gridHeight / valuesCount);
     }
 
     void setBounds(float left, float right, boolean animation) {
@@ -1615,7 +1619,7 @@ public class ChartView extends View implements RangeListener {
             lastSecond = System.currentTimeMillis();
         }
 
-        if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
+        if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0 || chartDataSource == null) {
             return;
         }
 
@@ -1672,6 +1676,7 @@ public class ChartView extends View implements RangeListener {
                 getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));
 
         updateGridOffsets();
+
         updateChart(true);
         vertGridPainter.reset();
         horzGridPainter.reset();
