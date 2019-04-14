@@ -16,6 +16,7 @@ import contest.utils.EarlyLinearInterpolator;
 import contest.utils.LateDecelerateInterpolator;
 import contest.utils.LateLinearInterpolator;
 import contest.utils.SimpleAnimator;
+import telegram.contest.chart.R;
 
 /**
  * Created by Alex K on 19/03/2019.
@@ -69,6 +70,8 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         detailsChartGroup.setVisibility(INVISIBLE);
         detailsChartGroup.setSingleRangeText(true);
         detailsChartGroup.setHeaderText("Zoom Out");
+        detailsChartGroup.setHeaderIcon(R.drawable.zoom_out);
+        detailsChartGroup.setHeaderColor(0xFF158BE3);
         detailsChartGroup.getChartView().setGesturesEnabled(false);
         detailsChartGroup.setHeaderClickListener(new OnClickListener() {
             @Override

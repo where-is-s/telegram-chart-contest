@@ -942,7 +942,7 @@ public class ChartView extends View implements RangeListener {
         }
 
         void update() {
-            if (true || isChartType(ChartType.PIE) || chartDataSource == null) {
+            if (isChartType(ChartType.PIE) || chartDataSource == null) {
                 return;
             }
 

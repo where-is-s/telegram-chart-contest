@@ -7,7 +7,9 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -23,6 +25,7 @@ import contest.utils.GeneralUtils;
 public class ChartGroup extends LinearLayout implements RangeListener {
 
     private LinearLayout headerLayout;
+    private ImageView headerImage;
     private TextView headerText;
     private TextView rangeText;
     private ChartView chartView;
@@ -58,12 +61,19 @@ public class ChartGroup extends LinearLayout implements RangeListener {
 
         headerLayout = new LinearLayout(getContext());
         headerLayout.setOrientation(HORIZONTAL);
+        headerLayout.setGravity(Gravity.CENTER_VERTICAL);
+        headerLayout.setPadding(dp16, 0, dp16, 0);
+
+        headerImage = new ImageView(getContext());
+        headerImage.setPadding(0, 0, GeneralUtils.dp2px(getContext(), 6), 0);
+        headerImage.setVisibility(GONE);
+        headerLayout.addView(headerImage, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         headerText = new TextView(getContext());
         headerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         headerText.setTextColor(Color.BLACK);
         headerText.setTypeface(GeneralUtils.getBoldTypeface());
-        headerText.setPadding(dp16, GeneralUtils.dp2px(getContext(), 24), dp16, dp16);
+        headerText.setPadding(0, dp16, dp16, dp16);
         headerText.setLines(1);
         headerText.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -74,7 +84,6 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         rangeText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         rangeText.setTextColor(Color.BLACK);
         rangeText.setTypeface(GeneralUtils.getMediumTypeface());
-        rangeText.setPadding(0, GeneralUtils.dp2px(getContext(), 24), dp16, dp16);
         layoutParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         headerLayout.addView(rangeText, layoutParams);
 
@@ -120,11 +129,13 @@ public class ChartGroup extends LinearLayout implements RangeListener {
     }
 
     public void setHeaderIcon(int resId) {
-        headerText.setCompoundDrawables(getResources().getDrawable(resId), null, null, null);
+        headerImage.setImageResource(resId);
+        headerImage.setVisibility(resId != 0 ? VISIBLE : GONE);
     }
 
     public void setHeaderClickListener(OnClickListener onClickListener) {
         headerText.setOnClickListener(onClickListener);
+        headerImage.setOnClickListener(onClickListener);
     }
 
     public ChartView getChartView() {

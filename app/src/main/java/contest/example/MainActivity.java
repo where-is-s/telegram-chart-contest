@@ -29,6 +29,8 @@ import contest.utils.GeneralUtils;
 import contest.view.BaseDetailsChartGroup;
 import contest.view.ChartGroup;
 import contest.view.PieDetailsChartGroup;
+import contest.view.ThreeDayDetailsChartGroup;
+import contest.view.WeekDetailsChartGroup;
 import telegram.contest.chart.R;
 
 public class MainActivity extends Activity {
@@ -59,14 +61,14 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(LinearLayout.VERTICAL);
 
         chartGroups.clear();
-//        addDetailsChartGroup(new WeekDetailsChartGroup(this),
-//                Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
-//        addDetailsChartGroup(new WeekDetailsChartGroup(this),
-//                Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
-//        addDetailsChartGroup(new WeekDetailsChartGroup(this),
-//                Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
-//        addDetailsChartGroup(new ThreeDayDetailsChartGroup(this),
-//                Data_4.chartDataSource, Data_4b.class.getSimpleName(), Data_4b.chartDataSource);
+        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+                Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
+        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+                Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
+        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+                Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
+        addDetailsChartGroup(new ThreeDayDetailsChartGroup(this),
+                Data_4.chartDataSource, Data_4b.class.getSimpleName(), Data_4b.chartDataSource);
         addDetailsChartGroup(new PieDetailsChartGroup(this),
                 Data_5.chartDataSource, null, Data_5b.chartDataSource);
 
