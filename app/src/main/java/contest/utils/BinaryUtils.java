@@ -52,7 +52,13 @@ public class BinaryUtils {
                 dateArray[i] *= 1000L; // convert back to milliseconds
             }
         }
-        int length = end - start + 1;
+        if (start == -1) {
+            return new long[arrays][];
+        }
+        if (end == -1) {
+            end = dateArray.length;
+        }
+        int length = end - start;
         long result[][] = new long[arrays][];
         result[0] = new long[length];
         System.arraycopy(dateArray, start, result[0], 0, length);

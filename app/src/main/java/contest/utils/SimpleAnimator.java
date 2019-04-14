@@ -19,12 +19,14 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
     }
 
     private static class IntValue {
+        Interpolator interpolator;
         int from;
         int to;
         int current;
     }
 
     private static class FloatValue {
+        Interpolator interpolator;
         float from;
         float to;
         float current;
@@ -46,16 +48,26 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
     }
 
     public void addValue(int id, int from, int to) {
+        addValue(id, from, to, null);
+    }
+
+    public void addValue(int id, int from, int to, Interpolator interpolator) {
         IntValue intValue = new IntValue();
         intValue.from = from;
         intValue.to = to;
+        intValue.interpolator = interpolator;
         animatedValues.put(id, intValue);
     }
 
     public void addValue(int id, float from, float to) {
+        addValue(id, from, to, null);
+    }
+
+    public void addValue(int id, float from, float to, Interpolator interpolator) {
         FloatValue floatValue = new FloatValue();
         floatValue.from = from;
         floatValue.to = to;
+        floatValue.interpolator = interpolator;
         animatedValues.put(id, floatValue);
     }
 
@@ -123,10 +135,12 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
             Object animatedValue = entry.getValue();
             if (animatedValue instanceof IntValue) {
                 IntValue value = (IntValue) animatedValue;
-                value.current = (int) (value.from + (value.to - value.from) * fraction);
+                float interpolatedFraction = value.interpolator == null ? fraction : value.interpolator.getInterpolation(fraction);
+                value.current = (int) (value.from + (value.to - value.from) * interpolatedFraction);
             } else if (animatedValue instanceof FloatValue) {
                 FloatValue value = (FloatValue) animatedValue;
-                value.current = value.from + (value.to - value.from) * fraction;
+                float interpolatedFraction = value.interpolator == null ? fraction : value.interpolator.getInterpolation(fraction);
+                value.current = value.from + (value.to - value.from) * interpolatedFraction;
             }
         }
         if (listener != null) {

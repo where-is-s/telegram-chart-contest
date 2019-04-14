@@ -1,30 +1,37 @@
 package contest.datasource;
 
 
-import android.text.format.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 /**
  * Created by Alex K on 19/03/2019.
  */
 public class DateColumnDataSource extends BaseColumnDataSource {
 
-    private final String dateFormat = "MMM d";
-    private final String dateFormatMedium = "d MMM yyyy";
-    private final String dateFormatLong = "EEE, MMM d yyyy";
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d", Locale.getDefault());
+    private final SimpleDateFormat dateFormatMedium = new SimpleDateFormat("d MMM yyyy", Locale.getDefault());
+    private final SimpleDateFormat dateFormatLong = new SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault());
 
     public DateColumnDataSource(ColumnType type, String name, int color, long values[]) {
         super(type, name, color, values);
+        TimeZone utc = TimeZone.getTimeZone("UTC");
+        dateFormat.setTimeZone(utc);
+        dateFormatMedium.setTimeZone(utc);
+        dateFormatLong.setTimeZone(utc);
     }
 
     @Override
     public String formatValue(long value, ValueFormatType valueFormatType) {
         switch (valueFormatType) {
             case HINT_TITLE:
-                return String.valueOf(DateFormat.format(dateFormatLong, value));
+                return dateFormatLong.format(new Date(value));
             case RANGE_TITLE:
-                return String.valueOf(DateFormat.format(dateFormatMedium, value));
+                return dateFormatMedium.format(new Date(value));
             default:
-                return String.valueOf(DateFormat.format(dateFormat, value));
+                return dateFormat.format(new Date(value));
         }
     }
 

@@ -20,6 +20,7 @@ import android.view.ScaleGestureDetector;
 import android.view.SoundEffectConstants;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -34,6 +35,7 @@ import contest.datasource.ColumnType;
 import contest.datasource.ValueFormatType;
 import contest.utils.ChartUtils;
 import contest.utils.GeneralUtils;
+import contest.utils.LateLinearInterpolator;
 import contest.utils.SimpleAnimator;
 import telegram.contest.chart.R;
 
@@ -70,6 +72,7 @@ public class ChartView extends View implements RangeListener {
     ColumnDataSource yRightColumnSource;
     ColumnDataSource animatingColumn;
     float animatingColumnOpacity; // 1f for opaque (alpha = 255), 0f for transparent (alpha = 0)
+    Interpolator hintColumnAlphaInterpolator = new LateLinearInterpolator(0.5f);
 
     float chartLineWidth;
     float vertGridLineInterval;
@@ -950,7 +953,6 @@ public class ChartView extends View implements RangeListener {
             for (int c = 0; c < lines.size(); ++c) {
                 HorzGridLine line = lines.valueAt(c);
                 long row = lines.keyAt(c);
-                textPaint.setTextAlign(row == 0 ? Paint.Align.LEFT : Paint.Align.CENTER);
                 textPaint.setAlpha(line.alpha);
                 canvas.drawText(line.value, gridToScreenX(row), horzGridTop, textPaint);
             }
@@ -1361,6 +1363,10 @@ public class ChartView extends View implements RangeListener {
         this.animationSpeed = animationSpeed;
     }
 
+    public int getAnimationSpeed() {
+        return animationSpeed;
+    }
+
     public void setHintShadowRadius(float hintShadowRadius) {
         this.hintShadowRadius = hintShadowRadius;
         hintBodyPaint.setShadowLayer(hintShadowRadius, 0f, hintShadowRadius / 2, hintShadowColor);
@@ -1584,7 +1590,7 @@ public class ChartView extends View implements RangeListener {
         if (!rightBoundFixed) {
             rightBound = Math.min(chartDataSource.getRowsCount() - 1, right);
         }
-        for (RangeListener rangeListener: rangeListeners) {
+        for (RangeListener rangeListener : rangeListeners) {
             rangeListener.onRangeSelected(leftBound, rightBound);
         }
         updateGridOffsets();
@@ -1718,6 +1724,9 @@ public class ChartView extends View implements RangeListener {
             }
             bodyHeight = GeneralUtils.getFontHeight(hintTitlePaint) + hintVertPadding
                     + (GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding) * visibleLineColumnSources.size();
+            if (animatingColumn != null) {
+                bodyHeight -= (GeneralUtils.getFontHeight(hintValuePaint) + hintVertPadding) * (1f - animatingColumnOpacity);
+            }
         }
         calculatedHintWidth = 4 * hintShadowRadius + 2 * hintHorzPadding + bodyWidth;
         calculatedHintHeight = 4 * hintShadowRadius + 2 * hintVertPadding + bodyHeight;
@@ -1785,15 +1794,21 @@ public class ChartView extends View implements RangeListener {
                     currentLeft += hintPercentageOffset;
                 }
 
-                hintNamePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
+                int alpha = columnDataSource != animatingColumn ? 255
+                        : (int) (255 * hintColumnAlphaInterpolator.getInterpolation(animatingColumnOpacity));
+                hintNamePaint.setAlpha(alpha);
                 canvas.drawText(columnDataSource.getName(), currentLeft, currentTop, hintNamePaint);
 
                 hintValuePaint.setColor(columnDataSource.getColor());
-                hintValuePaint.setAlpha(columnDataSource != animatingColumn ? 255 : (int) (255 * animatingColumnOpacity));
+                hintValuePaint.setAlpha(alpha);
                 String value = columnDataSource.formatValue(columnDataSource.getValue(selectedItem), ValueFormatType.HINT_VALUE);
                 canvas.drawText(value, right, currentTop, hintValuePaint);
 
-                currentTop += fontHeight + hintVertPadding;
+                if (columnDataSource != animatingColumn) {
+                    currentTop += fontHeight + hintVertPadding;
+                } else {
+                    currentTop += animatingColumnOpacity * (fontHeight + hintVertPadding);
+                }
             }
         }
 

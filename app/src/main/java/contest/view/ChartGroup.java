@@ -28,6 +28,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
     private ChartView chartView;
     private ChartNavigationView chartNavigationView;
     private ChartLegendView chartLegendView;
+    private boolean shortRangeText;
 
     public ChartGroup(Context context) {
         super(context);
@@ -54,7 +55,6 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         int dp16 = GeneralUtils.dp2px(getContext(), 16);
 
         setOrientation(LinearLayout.VERTICAL);
-        setBackgroundColor(Color.WHITE);
 
         headerLayout = new LinearLayout(getContext());
         headerLayout.setOrientation(HORIZONTAL);
@@ -119,6 +119,14 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         headerText.setTextColor(color);
     }
 
+    public void setHeaderIcon(int resId) {
+        headerText.setCompoundDrawables(getResources().getDrawable(resId), null, null, null);
+    }
+
+    public void setHeaderClickListener(OnClickListener onClickListener) {
+        headerText.setOnClickListener(onClickListener);
+    }
+
     public ChartView getChartView() {
         return chartView;
     }
@@ -136,10 +144,13 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         ChartDataSource chartDataSource = chartView.getChartDataSource();
         int xAxisColumnIdx = chartDataSource.getXAxisValueSourceColumn();
         ColumnDataSource xAxisColumn = chartDataSource.getColumn(xAxisColumnIdx);
-        rangeText.setText(String.format("%s - %s",
-                xAxisColumn.formatValue(xAxisColumn.getValue((int) startRow), ValueFormatType.RANGE_TITLE),
-                xAxisColumn.formatValue(xAxisColumn.getValue((int) endRow), ValueFormatType.RANGE_TITLE)
-        ));
+        String left = xAxisColumn.formatValue(xAxisColumn.getValue((int) startRow), ValueFormatType.RANGE_TITLE);
+        String right = xAxisColumn.formatValue(xAxisColumn.getValue((int) endRow), ValueFormatType.RANGE_TITLE);
+        if (shortRangeText) {
+            rangeText.setText(left);
+        } else {
+            rangeText.setText(String.format("%s - %s", left, right));
+        }
 
     }
 
@@ -151,4 +162,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
     public void onStopDragging() {
     }
 
+    public void setShortRangeText(boolean shortRangeText) {
+        this.shortRangeText = shortRangeText;
+    }
 }

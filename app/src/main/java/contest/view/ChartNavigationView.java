@@ -43,8 +43,13 @@ public class ChartNavigationView extends View implements RangeListener {
     private static final int ANIMATE_ALPHA = 3;
     private static final int ANIMATE_OLD_CHART_BITMAP_TOP = 4;
     private static final int ANIMATE_OLD_CHART_BITMAP_BOTTOM = 5;
+    private static final int ANIMATE_WINDOW_LEFT = 6;
+    private static final int ANIMATE_WINDOW_RIGHT = 7;
 
     private ChartDataSource chartDataSource;
+
+    private long snapToXDistance = -1;
+    private boolean allowResizeWindow = true;
 
     private float chartLineWidth = 10;
     private float windowVerticalFrameSize = 12;
@@ -95,18 +100,19 @@ public class ChartNavigationView extends View implements RangeListener {
     private float touchBeginY;
     private boolean mightCancelDrag;
 
-    private SimpleAnimator activeAnimator;
+    private SimpleAnimator chartsAnimator;
+    private SimpleAnimator windowAnimator;
 
     private RangeListener listener;
     private ChartDataSource.Listener chartDataSourceListener = new ChartDataSource.Listener() {
 
         @Override
         public void onSetColumnVisibility(int column, boolean visible) {
-            if (activeAnimator != null) {
-                activeAnimator.cancel();
+            if (chartsAnimator != null) {
+                chartsAnimator.cancel();
             }
-            activeAnimator = new SimpleAnimator();
-            activeAnimator.setDuration(300);
+            chartsAnimator = new SimpleAnimator();
+            chartsAnimator.setDuration(300);
             float oldTopBound = topBound;
             float oldBottomBound = bottomBound;
             oldChartBitmap = currentChartBitmap;
@@ -118,21 +124,21 @@ public class ChartNavigationView extends View implements RangeListener {
             topBound = oldTopBound;
             bottomBound = oldBottomBound;
             calculateGridBounds();
-            activeAnimator.addValue(ANIMATE_CHART_BITMAP_TOP, gridToScreenY(false, newTopBound), topGridOffset);
-            activeAnimator.addValue(ANIMATE_CHART_BITMAP_BOTTOM, gridToScreenY(false, newBottomBound), topGridOffset + gridHeight);
+            chartsAnimator.addValue(ANIMATE_CHART_BITMAP_TOP, gridToScreenY(false, newTopBound), topGridOffset);
+            chartsAnimator.addValue(ANIMATE_CHART_BITMAP_BOTTOM, gridToScreenY(false, newBottomBound), topGridOffset + gridHeight);
             topBound = newTopBound;
             bottomBound = newBottomBound;
             calculateGridBounds();
 
-            activeAnimator.addValue(ANIMATE_ALPHA, 0, 255);
-            activeAnimator.addValue(ANIMATE_OLD_CHART_BITMAP_TOP, topGridOffset, gridToScreenY(false, oldTopBound));
-            activeAnimator.addValue(ANIMATE_OLD_CHART_BITMAP_BOTTOM, topGridOffset + gridHeight, gridToScreenY(false, oldBottomBound));
-            activeAnimator.setInterpolator(new DecelerateInterpolator());
-            activeAnimator.setListener(new SimpleAnimator.Listener() {
+            chartsAnimator.addValue(ANIMATE_ALPHA, 0, 255);
+            chartsAnimator.addValue(ANIMATE_OLD_CHART_BITMAP_TOP, topGridOffset, gridToScreenY(false, oldTopBound));
+            chartsAnimator.addValue(ANIMATE_OLD_CHART_BITMAP_BOTTOM, topGridOffset + gridHeight, gridToScreenY(false, oldBottomBound));
+            chartsAnimator.setInterpolator(new DecelerateInterpolator());
+            chartsAnimator.setListener(new SimpleAnimator.Listener() {
 
                 @Override
                 public void onEnd() {
-                    activeAnimator = null;
+                    chartsAnimator = null;
                     if (oldChartBitmap != null) {
                         oldChartBitmap.recycle();
                         oldChartBitmap = null;
@@ -147,10 +153,10 @@ public class ChartNavigationView extends View implements RangeListener {
 
                 @Override
                 public void onUpdate() {
-                    float oldChartLinesTopOffset = activeAnimator.getFloatValue(ANIMATE_OLD_CHART_BITMAP_TOP);
-                    float oldChartLinesBottomOffset = activeAnimator.getFloatValue(ANIMATE_OLD_CHART_BITMAP_BOTTOM);
-                    float chartLinesTopOffset = activeAnimator.getFloatValue(ANIMATE_CHART_BITMAP_TOP);
-                    float chartLinesBottomOffset = activeAnimator.getFloatValue(ANIMATE_CHART_BITMAP_BOTTOM);
+                    float oldChartLinesTopOffset = chartsAnimator.getFloatValue(ANIMATE_OLD_CHART_BITMAP_TOP);
+                    float oldChartLinesBottomOffset = chartsAnimator.getFloatValue(ANIMATE_OLD_CHART_BITMAP_BOTTOM);
+                    float chartLinesTopOffset = chartsAnimator.getFloatValue(ANIMATE_CHART_BITMAP_TOP);
+                    float chartLinesBottomOffset = chartsAnimator.getFloatValue(ANIMATE_CHART_BITMAP_BOTTOM);
 
                     oldChartBitmapSrcRect.left = 0;
                     oldChartBitmapSrcRect.top = 0;
@@ -169,7 +175,7 @@ public class ChartNavigationView extends View implements RangeListener {
                     chartBitmapDstRect.right = (int) (leftGridOffset + gridWidth);
                     chartBitmapDstRect.bottom = (int) chartLinesBottomOffset;
 
-                    int alpha = activeAnimator.getIntValue(ANIMATE_ALPHA);
+                    int alpha = chartsAnimator.getIntValue(ANIMATE_ALPHA);
                     chartBitmapPaint.setAlpha(alpha);
                     if (isChartType(ChartType.PERCENTAGE) || isChartType(ChartType.PIE)) {
                         oldChartBitmapPaint.setAlpha(255);
@@ -179,7 +185,7 @@ public class ChartNavigationView extends View implements RangeListener {
                     invalidate();
                 }
             });
-            activeAnimator.start();
+            chartsAnimator.start();
         }
     };
 
@@ -298,6 +304,33 @@ public class ChartNavigationView extends View implements RangeListener {
         return super.dispatchTouchEvent(event);
     }
 
+    private float snapToNearestRow(float row) {
+        ColumnDataSource xColumn = chartDataSource.getColumn(chartDataSource.getXAxisValueSourceColumn());
+        if (row > xColumn.getRowsCount() - 1) {
+            return xColumn.getRowsCount() - 1;
+        }
+        if (row < 0) {
+            return 0;
+        }
+        long value = xColumn.getValue((int) row);
+        long leftValue = (value / snapToXDistance) * snapToXDistance;
+        long rightValue = (value / snapToXDistance + 1) * snapToXDistance;
+        if (value < (leftValue + rightValue) / 2) {
+            for (int r = (int) row; r >= 0; --r) {
+                if (xColumn.getValue(r) < leftValue) {
+                    return r + 1;
+                }
+            }
+            return 0;
+        }
+        for (int r = (int) row; r < xColumn.getRowsCount(); ++r) {
+            if (xColumn.getValue(r) > rightValue) {
+                return r - 1;
+            }
+        }
+        return xColumn.getRowsCount();
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         float windowLeft = gridToScreenX(windowLeftRow);
@@ -307,15 +340,16 @@ public class ChartNavigationView extends View implements RangeListener {
                 touchBeginX = event.getX();
                 touchBeginY = event.getY();
                 mightCancelDrag = true;
-                if (event.getX() > windowLeft - fingerSize / 2 && event.getX() < windowLeft + fingerSize / 2) {
-                    setDragMode(DRAG_LEFT);
-                    dragOffset = event.getX() - windowLeft;
-                } else if (event.getX() > windowRight - fingerSize / 2 && event.getX() < windowRight + fingerSize / 2) {
-                    setDragMode(DRAG_RIGHT);
-                    dragOffset = event.getX() - windowRight;
-                } else if (event.getX() > windowLeft + fingerSize / 2 && event.getX() < windowRight + fingerSize / 2) {
+                if (event.getX() > windowLeft && event.getX() < windowRight
+                        || (!allowResizeWindow && event.getX() > windowLeft - fingerSize / 2 && event.getX() < windowRight + fingerSize / 2)) {
                     setDragMode(DRAG_WINDOW);
                     dragOffset = event.getX() - windowLeft;
+                } else if (allowResizeWindow && event.getX() > windowLeft - fingerSize && event.getX() < windowLeft) {
+                    setDragMode(DRAG_LEFT);
+                    dragOffset = event.getX() - windowLeft;
+                } else if (allowResizeWindow && event.getX() > windowRight && event.getX() < windowRight + fingerSize) {
+                    setDragMode(DRAG_RIGHT);
+                    dragOffset = event.getX() - windowRight;
                 } else {
                     setDragMode(DRAG_NONE);
                     return false;
@@ -331,8 +365,19 @@ public class ChartNavigationView extends View implements RangeListener {
                         break;
                     case DRAG_WINDOW:
                         float windowSizeRows = windowRightRow - windowLeftRow;
-                        windowLeftRow = Math.max(0, Math.min(chartDataSource.getRowsCount() - 1 - windowSizeRows, screenToGridX(event.getX() - dragOffset)));
-                        windowRightRow = Math.min(chartDataSource.getRowsCount() - 1, Math.max(0 + windowSizeRows, windowLeftRow + windowSizeRows));
+                        float newWindowLeftRow = screenToGridX(event.getX() - dragOffset);
+                        if (snapToXDistance < 0) {
+                            windowLeftRow = Math.max(0, Math.min(chartDataSource.getRowsCount() - 1 - windowSizeRows, newWindowLeftRow));
+                            windowRightRow = Math.min(chartDataSource.getRowsCount() - 1, Math.max(0 + windowSizeRows, windowLeftRow + windowSizeRows));
+                        } else {
+                            float snapLeftRow = snapToNearestRow(newWindowLeftRow);
+                            if (snapLeftRow != windowLeftRow && snapLeftRow < chartDataSource.getRowsCount() && windowAnimator == null) {
+                                float snapRightRow = snapToNearestRow(snapLeftRow + windowSizeRows) - 1;
+                                if (snapRightRow > snapLeftRow) {
+                                    animateTo(snapLeftRow, snapRightRow);
+                                }
+                            }
+                        }
                         break;
                     case DRAG_NONE:
                     default:
@@ -347,7 +392,7 @@ public class ChartNavigationView extends View implements RangeListener {
                     }
                 }
                 invalidate();
-                if (listener != null) {
+                if (listener != null && snapToXDistance < 0) { // when snapping, range will be animated
                     listener.onRangeSelected(windowLeftRow, windowRightRow);
                 }
                 return true;
@@ -358,6 +403,39 @@ public class ChartNavigationView extends View implements RangeListener {
 
         }
         return super.onTouchEvent(event);
+    }
+
+    private void animateTo(float snapLeftRow, float snapRightRow) {
+        if (windowAnimator != null) {
+            windowAnimator.cancel();
+        }
+        windowAnimator = new SimpleAnimator();
+        windowAnimator.addValue(ANIMATE_WINDOW_LEFT, windowLeftRow, snapLeftRow);
+        windowAnimator.addValue(ANIMATE_WINDOW_RIGHT, windowRightRow, snapRightRow);
+        windowAnimator.setDuration(150);
+        windowAnimator.setListener(new SimpleAnimator.Listener() {
+            @Override
+            public void onUpdate() {
+                windowLeftRow = windowAnimator.getFloatValue(ANIMATE_WINDOW_LEFT);
+                windowRightRow = windowAnimator.getFloatValue(ANIMATE_WINDOW_RIGHT);
+                if (listener != null) {
+                    listener.onStartDragging(); // make sure we're still in dragging state
+                    listener.onRangeSelected(windowLeftRow, windowRightRow);
+                }
+                invalidate();
+            }
+
+            @Override
+            public void onEnd() {
+                windowAnimator = null;
+            }
+
+            @Override
+            public void onCancel() {
+                windowAnimator = null;
+            }
+        });
+        windowAnimator.start();
     }
 
     public void setChartDataSource(ChartDataSource chartDataSource) {
@@ -486,7 +564,7 @@ public class ChartNavigationView extends View implements RangeListener {
                         lines[offset] = lines[offset];
                         lines[offset + 2] = lines[offset];
                         lines[offset + 3] = lines[offset + 1];
-                        lines[offset + 1] -= - multiplier * valuesFast[row];
+                        lines[offset + 1] -= multiplier * valuesFast[row];
                     }
                 }
                 canvas.drawLines(lines, paint);
@@ -662,6 +740,14 @@ public class ChartNavigationView extends View implements RangeListener {
 
     private boolean isChartType(ChartType chartType) {
         return chartDataSource != null && chartDataSource.getChartType().equals(chartType);
+    }
+
+    public void setSnapToXDistance(long snapToXDistance) {
+        this.snapToXDistance = snapToXDistance;
+    }
+
+    public void setAllowResizeWindow(boolean allowResizeWindow) {
+        this.allowResizeWindow = allowResizeWindow;
     }
 
 }

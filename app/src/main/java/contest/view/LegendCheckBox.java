@@ -95,6 +95,7 @@ public class LegendCheckBox extends View {
 
     public void setChecked(boolean checked) {
         this.checked = checked;
+        invalidate();
     }
 
     public void setText(String text) {

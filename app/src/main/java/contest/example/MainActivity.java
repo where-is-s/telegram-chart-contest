@@ -24,6 +24,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
+import contest.datasource.ChartDataSource;
 import contest.datasource.SimpleChartDataSource;
 import contest.utils.GeneralUtils;
 import contest.view.ChartGroup;
@@ -58,17 +59,9 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(LinearLayout.VERTICAL);
 
         chartGroups.clear();
-        /*addChartGroup(Data_1.chartDataSource);
-        addChartGroup(Data_2.chartDataSource);
-        addChartGroup(Data_3.chartDataSource);
-        addChartGroup(Data_4.chartDataSource);
-        addChartGroup(Data_5.chartDataSource);*/
-        WeekDetailsChartGroup chartGroup = new WeekDetailsChartGroup(this);
-        chartGroup.setChartDataSource(Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
-//        chartGroups.add(chartGroup);
-        linearLayout.addView(chartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        addSpacer(linearLayout);
+        addDetailsChartGroup(Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
+        addDetailsChartGroup(Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
+        addDetailsChartGroup(Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
 
         settingsLayout = new LinearLayout(this);
         settingsLayout.setOrientation(LinearLayout.VERTICAL);
@@ -126,13 +119,11 @@ public class MainActivity extends Activity {
         setContentView(scrollView);
     }
 
-    private void addChartGroup(SimpleChartDataSource chartDataSource) {
-        ChartGroup chartGroup = new ChartGroup(this);
+    private void addDetailsChartGroup(ChartDataSource mainDataSource, String assetBaseName, SimpleChartDataSource detailsDataSource) {
+        WeekDetailsChartGroup chartGroup = new WeekDetailsChartGroup(this);
         chartGroup.setHeaderText("Chart #" + (chartGroups.size() + 1));
-        chartGroup.setChartDataSource(chartDataSource);
-        chartGroups.add(chartGroup);
+        chartGroup.setChartDataSource(mainDataSource, assetBaseName, detailsDataSource);
         linearLayout.addView(chartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
         addSpacer(linearLayout);
     }
 
