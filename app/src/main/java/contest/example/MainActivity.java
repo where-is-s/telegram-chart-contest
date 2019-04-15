@@ -174,13 +174,16 @@ public class MainActivity extends Activity {
                     flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
                 }
                 getWindow().getDecorView().setSystemUiVisibility(flags);
+                getWindow().setStatusBarColor(darkMode ? 0xff242f3e : 0xffffffff);
+            } else {
+                getWindow().setStatusBarColor(darkMode ? 0xff242f3e : 0xffc0c0c0);
             }
-            getWindow().setStatusBarColor(darkMode ? 0xff242f3e : 0xffffffff);
         }
         if (getActionBar() != null) {
             getActionBar().setBackgroundDrawable(new ColorDrawable(darkMode ? 0xff242f3e : 0xffffffff));
             getActionBar().setTitle(Html.fromHtml("<font color='#" + (darkMode ? "FFFFFF" : "000000") + "'>Statistics</font>"));
         }
+        invalidateOptionsMenu();
 
 //        settingsLayout.setBackgroundColor(darkMode ? 0xff1d2733 : 0xffffffff);
 //        for (CheckBox checkBox: settingCheckBoxes) {

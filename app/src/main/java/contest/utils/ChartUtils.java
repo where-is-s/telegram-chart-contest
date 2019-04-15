@@ -18,6 +18,12 @@ public class ChartUtils {
     }
 
     public static VertBounds calculateVertBounds(ChartDataSource chartDataSource, int lefterBound, int righterBound, boolean stacking) {
+//        VertBounds vb = new VertBounds();
+//        vb.calculatedTopBound = 150000;
+//        vb.calculatedBottomBound = 0;
+//        if (true) {
+//            return vb;
+//        }
         float calculatedBottomBound = stacking ? 0 : Float.MAX_VALUE;
         float calculatedTopBound = stacking ? 0 : Float.MIN_VALUE;
         float rightYAxisMultiplier = chartDataSource.getRightYAxisMultiplier();

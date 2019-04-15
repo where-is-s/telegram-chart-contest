@@ -9,6 +9,9 @@ import contest.datasource.BaseColumnDataSource;
 import contest.datasource.ColumnDataSource;
 import contest.utils.BinaryUtils;
 import contest.utils.Constants;
+import contest.utils.EarlyLinearInterpolator;
+import contest.utils.LateDecelerateInterpolator;
+import contest.utils.SimpleAnimator;
 
 /**
  * Created by Alex K on 19/03/2019.
@@ -69,13 +72,14 @@ public class WeekDetailsChartGroup extends BaseDetailsChartGroup {
         detailsDataSource.updateRowsCount();
     }
 
-    @Override
-    protected float getLeftDetailsRowToAnimateTo() {
-        return leftRow;
+    protected void configureDetailsInAnimator(SimpleAnimator animator) {
+        animator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, leftRow, new LateDecelerateInterpolator(0.3f));
+        animator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, rightRow, new LateDecelerateInterpolator(0.3f));
     }
 
-    @Override
-    protected float getRightDetailsRowToAnimateTo() {
-        return rightRow;
+    protected void configureDetailsOutAnimator(SimpleAnimator animator) {
+        animator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
+        animator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
     }
+
 }

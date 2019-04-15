@@ -25,7 +25,12 @@ public class IntegerColumnDataSource extends BaseColumnDataSource {
     }
 
     @Override
-    public String formatValue(long value, ValueFormatType valueFormatType) {
+    protected boolean shouldPutInCache(long value, ValueFormatType valueFormatType) {
+        return value % 1000 == 0;
+    }
+
+    @Override
+    public String doFormatValue(long value, ValueFormatType valueFormatType) {
         switch (valueFormatType) {
             case VERT_GRID:
                 if (value < 10000) {

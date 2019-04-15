@@ -24,7 +24,7 @@ public class TimeColumnDataSource extends BaseColumnDataSource {
     }
 
     @Override
-    public String formatValue(long value, ValueFormatType valueFormatType) {
+    protected String doFormatValue(long value, ValueFormatType valueFormatType) {
         switch (valueFormatType) {
             case LEGEND:
                 return legendFormat.format(new Date(value));

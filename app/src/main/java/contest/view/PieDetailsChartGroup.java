@@ -73,14 +73,10 @@ public class PieDetailsChartGroup extends BaseDetailsChartGroup {
         detailsDataSource.updateRowsCount();
     }
 
-    @Override
-    protected float getLeftDetailsRowToAnimateTo() {
-        return detailsDataSource.getRowsCount() / 2;
+    protected void configureDetailsInAnimator(SimpleAnimator animator) {
     }
 
-    @Override
-    protected float getRightDetailsRowToAnimateTo() {
-        return detailsDataSource.getRowsCount() / 2;
+    protected void configureDetailsOutAnimator(SimpleAnimator animator) {
     }
 
     protected void handleDetailsClick(int row) {
@@ -89,7 +85,7 @@ public class PieDetailsChartGroup extends BaseDetailsChartGroup {
         detailsChartGroup.setChartDataSource(detailsDataSource);
         detailsChartGroup.getChartView().setSelectedItem(-1);
         detailsChartGroup.getChartLegendView().update();
-        detailsChartGroup.getChartView().setBounds(getLeftDetailsRowToAnimateTo(), getRightDetailsRowToAnimateTo(), true);
+        detailsChartGroup.getChartView().setBounds(detailsDataSource.getRowsCount() / 2, detailsDataSource.getRowsCount() / 2, true);
         detailsChartGroup.setVisibility(VISIBLE);
 
         activeAnimator = new SimpleAnimator();

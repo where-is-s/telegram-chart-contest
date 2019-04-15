@@ -1002,6 +1002,9 @@ public class ChartView extends View implements RangeListener {
             for (int c = 0; c < lines.size(); ++c) {
                 HorzGridLine line = lines.valueAt(c);
                 long row = lines.keyAt(c);
+                if (line.alpha == 0) {
+                    continue;
+                }
                 textPaint.setAlpha(line.alpha);
                 canvas.drawText(line.value, gridToScreenX(row), horzGridTop, textPaint);
             }
@@ -1242,7 +1245,7 @@ public class ChartView extends View implements RangeListener {
                     }
                     updateGridOffsets();
                     updateChart(false);
-//                    updateHint(); TODO !!!
+//                    updateHint(); TODO maybe return it?
                 }
             });
             chartAnimator.start();
@@ -1251,7 +1254,7 @@ public class ChartView extends View implements RangeListener {
 
     SimpleAnimator chartAnimator;
     SimpleAnimator hintAnimator;
-    boolean isAnimatingThroughUI;
+    boolean isAnimatingThroughUI; // this variable helps to skip additional animation frames when animation is invoked from another animation
     boolean isScaling;
 
     public ChartView(Context context) {
@@ -1304,11 +1307,11 @@ public class ChartView extends View implements RangeListener {
         setGridLineWidth(GeneralUtils.dp2px(getContext(), 1));
         setHintBackgroundColor(Color.WHITE);
         setHintTitleTextColor(0xff222222);
-        setHintTitleTextSize(GeneralUtils.sp2px(getContext(), 13));
+        setHintTitleTextSize(GeneralUtils.sp2px(getContext(), 14));
         setHintVertPadding(GeneralUtils.dp2px(getContext(), 6));
         setHintHorzPadding(GeneralUtils.dp2px(getContext(), 14));
         setHintHorzMargin(GeneralUtils.dp2px(getContext(), 24));
-        setHintChartValueTextSize(GeneralUtils.sp2px(getContext(), 13));
+        setHintChartValueTextSize(GeneralUtils.sp2px(getContext(), 14));
         setClipToPadding(false);
         setFingerSize(GeneralUtils.dp2px(getContext(), 24));
         setAnimationSpeed(300);
@@ -1684,9 +1687,7 @@ public class ChartView extends View implements RangeListener {
         }
     }
 
-    CallTracker updates = new CallTracker("updates");
     void updateChart(boolean reset) {
-        updates.call();
         if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0 || chartDataSource == null) {
             return;
         }
@@ -1733,6 +1734,7 @@ public class ChartView extends View implements RangeListener {
     }
 
     public void setSelectedItem(int selectedItem) {
+        isAnimatingThroughUI = false; // whenever we select an item, UI is not animated
         this.selectedItem = selectedItem;
         updateHint();
         invalidate();
@@ -2040,7 +2042,7 @@ public class ChartView extends View implements RangeListener {
                 invalidate();
             }
         });
-        hintAnimator.start(isAnimatingThroughUI); // TODO
+        hintAnimator.start(isAnimatingThroughUI);
     }
 
     String formatGridValue(boolean left, float value) {

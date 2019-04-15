@@ -11,7 +11,7 @@ import java.util.TimeZone;
  */
 public class DateColumnDataSource extends BaseColumnDataSource {
 
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d", Locale.getDefault());
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("d MMM", Locale.getDefault());
     private final SimpleDateFormat dateFormatMedium = new SimpleDateFormat("d MMM yyyy", Locale.getDefault());
     private final SimpleDateFormat dateFormatLong = new SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault());
     private final SimpleDateFormat dateFormatLonger = new SimpleDateFormat("EEEE, d MMM yyyy", Locale.getDefault());
@@ -25,7 +25,7 @@ public class DateColumnDataSource extends BaseColumnDataSource {
     }
 
     @Override
-    public String formatValue(long value, ValueFormatType valueFormatType) {
+    protected String doFormatValue(long value, ValueFormatType valueFormatType) {
         switch (valueFormatType) {
             case HINT_TITLE:
                 return dateFormatLong.format(new Date(value));

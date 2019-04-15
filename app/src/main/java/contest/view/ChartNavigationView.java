@@ -14,6 +14,7 @@ import android.graphics.RectF;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.SoundEffectConstants;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 
@@ -445,6 +446,10 @@ public class ChartNavigationView extends View implements RangeListener {
         if (windowAnimator != null) {
             windowAnimator.cancel();
         }
+        if (snapLeftRow == windowLeftRow && snapRightRow == windowRightRow) {
+            return;
+        }
+        playSoundEffect(SoundEffectConstants.CLICK);
         windowAnimator = new SimpleAnimator();
         windowAnimator.addValue(ANIMATE_WINDOW_LEFT, windowLeftRow, snapLeftRow);
         windowAnimator.addValue(ANIMATE_WINDOW_RIGHT, windowRightRow, snapRightRow);
