@@ -2,7 +2,6 @@ package contest.view;
 
 import android.annotation.TargetApi;
 import android.content.Context;
-import android.graphics.Color;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.view.View;
@@ -60,8 +59,6 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
     }
 
     protected void init() {
-        setBackgroundColor(Color.WHITE);
-
         mainChartGroup = new ChartGroup(getContext());
         mainChartGroup.getChartView().setDetailsListener(this);
         addView(mainChartGroup, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -227,6 +224,54 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
             }
         }
         return idx;
+    }
+
+    public void setHeaderColor(int color) {
+        mainChartGroup.setHeaderColor(color);
+        mainChartGroup.setRangeTextColor(color);
+        detailsChartGroup.setRangeTextColor(color);
+    }
+
+    public void setChartBackgroundColor(int color) {
+        mainChartGroup.getChartView().setChartBackgroundColor(color);
+        detailsChartGroup.getChartView().setChartBackgroundColor(color);
+        mainChartGroup.getChartNavigationView().setChartBackgroundColor(color);
+        detailsChartGroup.getChartNavigationView().setChartBackgroundColor(color);
+    }
+
+    public void setHintTitleTextColor(int color) {
+        mainChartGroup.getChartView().setHintTitleTextColor(color);
+        detailsChartGroup.getChartView().setHintTitleTextColor(color);
+    }
+
+    public void setGridLineColor(int color) {
+        mainChartGroup.getChartView().setGridLineColor(color);
+        detailsChartGroup.getChartView().setGridLineColor(color);
+    }
+
+    public void setGridTextColor(int color) {
+        mainChartGroup.getChartView().setGridTextColor(color);
+        detailsChartGroup.getChartView().setGridTextColor(color);
+    }
+
+    public void setSelectedCircleFillColor(int color) {
+        mainChartGroup.getChartView().setSelectedCircleFillColor(color);
+        detailsChartGroup.getChartView().setSelectedCircleFillColor(color);
+    }
+
+    public void setHintBackgroundColor(int color) {
+        mainChartGroup.getChartView().setHintBackgroundColor(color);
+        detailsChartGroup.getChartView().setHintBackgroundColor(color);
+    }
+
+    public void setNavigationBackgroundColor(int color) {
+        mainChartGroup.getChartNavigationView().setBackgroundColor(color);
+        detailsChartGroup.getChartNavigationView().setBackgroundColor(color);
+    }
+
+    public void setNavigationWindowColor(int color) {
+        mainChartGroup.getChartNavigationView().setWindowColor(color);
+        detailsChartGroup.getChartNavigationView().setWindowColor(color);
     }
 
 }

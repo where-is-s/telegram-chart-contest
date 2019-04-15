@@ -94,7 +94,7 @@ public class ChartGroup extends LinearLayout implements RangeListener {
         chartView.setBottomBound(0f);
         chartView.setPadding(dp16, dp16/4, dp16, dp16);
         chartView.addListener(this);
-        addView(chartView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 360)));
+        addView(chartView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(getContext(), 320)));
         setClipToPadding(false);
         setClipChildren(false);
 
@@ -126,6 +126,10 @@ public class ChartGroup extends LinearLayout implements RangeListener {
 
     public void setHeaderColor(int color) {
         headerText.setTextColor(color);
+    }
+
+    public void setRangeTextColor(int color) {
+        rangeText.setTextColor(color);
     }
 
     public void setHeaderIcon(int resId) {
@@ -181,4 +185,5 @@ public class ChartGroup extends LinearLayout implements RangeListener {
     public void setSingleRangeText(boolean singleRangeText) {
         this.singleRangeText = singleRangeText;
     }
+
 }

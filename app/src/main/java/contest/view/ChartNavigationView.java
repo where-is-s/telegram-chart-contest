@@ -100,6 +100,8 @@ public class ChartNavigationView extends View implements RangeListener {
     private float touchBeginY;
     private boolean mightCancelDrag;
 
+    private int chartBackgroundColor = Color.WHITE;
+
     private SimpleAnimator chartsAnimator;
     private SimpleAnimator windowAnimator;
 
@@ -671,10 +673,13 @@ public class ChartNavigationView extends View implements RangeListener {
     }
 
     private void updateBitmaps() {
+        if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
+            return;
+        }
         float cornerRadius = GeneralUtils.dp2px(getContext(), 6);
         cornerCoverBitmap = Bitmap.createBitmap(getMeasuredWidth(), getMeasuredHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(cornerCoverBitmap);
-        canvas.drawColor(Color.WHITE); // TODO
+        canvas.drawColor(chartBackgroundColor);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.FILL);
         paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_OUT));
@@ -802,4 +807,9 @@ public class ChartNavigationView extends View implements RangeListener {
         this.allowResizeWindow = allowResizeWindow;
     }
 
+    public void setChartBackgroundColor(int color) {
+        this.chartBackgroundColor = color;
+        updateBitmaps();
+        invalidate();
+    }
 }

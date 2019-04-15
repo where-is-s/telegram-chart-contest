@@ -140,6 +140,8 @@ public class ChartView extends View implements RangeListener {
     int selectedCircleFillColor;
     float selectedLineWidth;
 
+    int chartBackgroundColor;
+
     interface ChartPainter {
         void update();
         void draw(Canvas canvas);
@@ -552,11 +554,10 @@ public class ChartView extends View implements RangeListener {
                 int color = 0;
                 if (selectedItem > -1) {
                     color = chartPaints[lineIdx].getColor();
-                    int backgroundColor = Color.WHITE; // TODO!
                     chartPaints[lineIdx].setColor(Color.rgb(
-                            (Color.red(color) + Color.red(backgroundColor)) / 2,
-                            (Color.green(color) + Color.green(backgroundColor)) / 2,
-                            (Color.blue(color) + Color.blue(backgroundColor)) / 2
+                            (Color.red(color) + Color.red(chartBackgroundColor)) / 2,
+                            (Color.green(color) + Color.green(chartBackgroundColor)) / 2,
+                            (Color.blue(color) + Color.blue(chartBackgroundColor)) / 2
                     ));
                 }
                 canvas.drawLines(chartLines[lineIdx], 0, chartLinesLength, chartPaints[lineIdx]);
@@ -1303,7 +1304,7 @@ public class ChartView extends View implements RangeListener {
         setHintTitleTextSize(GeneralUtils.sp2px(getContext(), 13));
         setHintVertPadding(GeneralUtils.dp2px(getContext(), 6));
         setHintHorzPadding(GeneralUtils.dp2px(getContext(), 14));
-        setHintHorzMargin(GeneralUtils.dp2px(getContext(), 20));
+        setHintHorzMargin(GeneralUtils.dp2px(getContext(), 24));
         setHintChartValueTextSize(GeneralUtils.sp2px(getContext(), 13));
         setClipToPadding(false);
         setFingerSize(GeneralUtils.dp2px(getContext(), 24));
@@ -2141,6 +2142,11 @@ public class ChartView extends View implements RangeListener {
     
     public void setDetailsListener(DetailsListener detailsListener) {
         this.detailsListener = detailsListener;
+    }
+
+    public void setChartBackgroundColor(int color) {
+        this.chartBackgroundColor = color;
+        invalidate();
     }
 
 }
