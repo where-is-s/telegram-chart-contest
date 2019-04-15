@@ -637,6 +637,8 @@ public class ChartNavigationView extends View implements RangeListener {
                 chartPaths[chartIdx].moveTo(firstX, gridBottom);
             }
 
+            boolean isPie = isChartType(ChartType.PIE);
+            float pieGridStepX = gridStepX - gridStepX * 1 / chartDataSource.getRowsCount();
             for (int row = 0; row < chartDataSource.getRowsCount(); ++row) {
                 float curValue = gridToScreenYFast;
                 float total = 0f;
@@ -645,7 +647,12 @@ public class ChartNavigationView extends View implements RangeListener {
                 }
                 for (int chartIdx = 0; chartIdx < fastValues.length; ++chartIdx) {
                     curValue -= fastValues[chartIdx][row] / total * gridHeight;
-                    chartPaths[chartIdx].lineTo(firstX + row * gridStepX, curValue);
+                    if (isPie) {
+                        chartPaths[chartIdx].lineTo(firstX + row * pieGridStepX, curValue);
+                        chartPaths[chartIdx].lineTo(firstX + (row + 1) * pieGridStepX, curValue);
+                    } else {
+                        chartPaths[chartIdx].lineTo(firstX + row * gridStepX, curValue);
+                    }
                 }
             }
 
