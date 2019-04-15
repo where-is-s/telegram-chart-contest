@@ -4,7 +4,7 @@
 
     <application
         android:icon="@mipmap/ic_launcher"
-        android:label="Chart Contest">
+        android:label="ChartCon">
         <activity android:name="contest.example.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

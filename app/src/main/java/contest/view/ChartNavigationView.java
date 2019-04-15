@@ -100,7 +100,7 @@ public class ChartNavigationView extends View implements RangeListener {
     private float touchBeginY;
     private boolean mightCancelDrag;
 
-    private int chartBackgroundColor = Color.WHITE;
+    private int chartBackgroundColor;
 
     private SimpleAnimator chartsAnimator;
     private SimpleAnimator windowAnimator;
@@ -232,6 +232,7 @@ public class ChartNavigationView extends View implements RangeListener {
         setFingerSize(GeneralUtils.dp2px(getContext(), 32));
         setBackgroundColor(0x99E2EEF9);
         setWindowColor(0x8086A9C4);
+        setChartBackgroundColor(Color.WHITE);
     }
 
     public void setWindowSizeMinRows(int windowSizeMinRows) {

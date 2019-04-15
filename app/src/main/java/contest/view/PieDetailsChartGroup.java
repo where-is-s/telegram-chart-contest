@@ -92,61 +92,63 @@ public class PieDetailsChartGroup extends BaseDetailsChartGroup {
         detailsChartGroup.getChartView().setBounds(getLeftDetailsRowToAnimateTo(), getRightDetailsRowToAnimateTo(), true);
         detailsChartGroup.setVisibility(VISIBLE);
 
-        final SimpleAnimator simpleAnimator = new SimpleAnimator();
-        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.1f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_SCALE, 0.5f, 1f, new LateLinearInterpolator(0.1f));
-        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
-        simpleAnimator.addValue(ANIMATE_MAIN_SCALE, 1f, 0.7f, new EarlyLinearInterpolator(0.8f));
-        simpleAnimator.setDuration(400);
-        simpleAnimator.setInterpolator(new DecelerateInterpolator());
+        activeAnimator = new SimpleAnimator();
+        activeAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.1f));
+        activeAnimator.addValue(ANIMATE_DETAILS_SCALE, 0.5f, 1f, new LateLinearInterpolator(0.1f));
+        activeAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
+        activeAnimator.addValue(ANIMATE_MAIN_SCALE, 1f, 0.7f, new EarlyLinearInterpolator(0.8f));
+        activeAnimator.setDuration(400);
+        activeAnimator.setInterpolator(new DecelerateInterpolator());
 
         mainChartGroup.getChartView().setPivotX(mainChartGroup.getChartView().getWidth() / 2);
         mainChartGroup.getChartView().setPivotY(mainChartGroup.getChartView().getHeight() / 2);
-        simpleAnimator.setListener(new SimpleAnimator.Listener() {
+        activeAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
             public void onEnd() {
+                activeAnimator = null;
             }
 
             @Override
             public void onUpdate() {
-                detailsChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
-                detailsChartGroup.getChartView().setScaleX(simpleAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
-                detailsChartGroup.getChartView().setScaleY(simpleAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
-                mainChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
-                mainChartGroup.getChartView().setScaleX(simpleAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
-                mainChartGroup.getChartView().setScaleY(simpleAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                detailsChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
+                detailsChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                detailsChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                mainChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
+                mainChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                mainChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
             }
         });
-        simpleAnimator.start();
+        activeAnimator.start();
     }
 
     protected void handleZoomOutClick() {
         mainChartGroup.setVisibility(VISIBLE);
 
-        final SimpleAnimator simpleAnimator = new SimpleAnimator();
-        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.9f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_SCALE, 1f, 0.7f, new EarlyLinearInterpolator(0.9f));
-        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 0f, 1f, new LateLinearInterpolator(0.2f));
-        simpleAnimator.addValue(ANIMATE_MAIN_SCALE, 0.5f, 1f, new LateLinearInterpolator(0.2f));
-        simpleAnimator.setDuration(400);
-        simpleAnimator.setInterpolator(new DecelerateInterpolator());
+        activeAnimator = new SimpleAnimator();
+        activeAnimator.addValue(ANIMATE_DETAILS_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.9f));
+        activeAnimator.addValue(ANIMATE_DETAILS_SCALE, 1f, 0.7f, new EarlyLinearInterpolator(0.9f));
+        activeAnimator.addValue(ANIMATE_MAIN_ALPHA, 0f, 1f, new LateLinearInterpolator(0.2f));
+        activeAnimator.addValue(ANIMATE_MAIN_SCALE, 0.5f, 1f, new LateLinearInterpolator(0.2f));
+        activeAnimator.setDuration(400);
+        activeAnimator.setInterpolator(new DecelerateInterpolator());
 
-        simpleAnimator.setListener(new SimpleAnimator.Listener() {
+        activeAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
             public void onEnd() {
+                activeAnimator = null;
                 detailsChartGroup.setVisibility(INVISIBLE);
             }
 
             @Override
             public void onUpdate() {
-                detailsChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
-                detailsChartGroup.getChartView().setScaleX(simpleAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
-                detailsChartGroup.getChartView().setScaleY(simpleAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
-                mainChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
-                mainChartGroup.getChartView().setScaleX(simpleAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
-                mainChartGroup.getChartView().setScaleY(simpleAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                detailsChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
+                detailsChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                detailsChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                mainChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
+                mainChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                mainChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
             }
         });
-        simpleAnimator.start();
+        activeAnimator.start();
     }
 }

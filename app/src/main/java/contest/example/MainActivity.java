@@ -56,15 +56,15 @@ public class MainActivity extends Activity {
 
         chartGroups.clear();
         addSpacer(linearLayout);
-        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+        addDetailsChartGroup("Followers", new WeekDetailsChartGroup(this),
                 Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
-        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+        addDetailsChartGroup("Interactions", new WeekDetailsChartGroup(this),
                 Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
-        addDetailsChartGroup(new WeekDetailsChartGroup(this),
+        addDetailsChartGroup("Fruits", new WeekDetailsChartGroup(this),
                 Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
-        addDetailsChartGroup(new ThreeDayDetailsChartGroup(this),
+        addDetailsChartGroup("Views", new ThreeDayDetailsChartGroup(this),
                 Data_4.chartDataSource, Data_4b.class.getSimpleName(), Data_4b.chartDataSource);
-        addDetailsChartGroup(new PieDetailsChartGroup(this),
+        addDetailsChartGroup("Fruits Ratio", new PieDetailsChartGroup(this),
                 Data_5.chartDataSource, null, Data_5b.chartDataSource);
 
 //        settingsLayout = new LinearLayout(this);
@@ -99,9 +99,9 @@ public class MainActivity extends Activity {
         setContentView(scrollView);
     }
 
-    private void addDetailsChartGroup(BaseDetailsChartGroup detailsChartGroup, ChartDataSource mainDataSource, String assetBaseName, SimpleChartDataSource detailsDataSource) {
+    private void addDetailsChartGroup(String name, BaseDetailsChartGroup detailsChartGroup, ChartDataSource mainDataSource, String assetBaseName, SimpleChartDataSource detailsDataSource) {
         chartGroups.add(detailsChartGroup);
-        detailsChartGroup.setHeaderText("Chart #" + (chartGroups.size() + 1));
+        detailsChartGroup.setHeaderText(name);
         detailsChartGroup.setChartDataSource(mainDataSource, assetBaseName, detailsDataSource);
         linearLayout.addView(detailsChartGroup, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         addSpacer(linearLayout);

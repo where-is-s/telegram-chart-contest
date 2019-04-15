@@ -36,6 +36,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
     ChartDataSource detailsDataSource;
     float mainSavedCenter;
     float mainSavedWidth;
+    protected SimpleAnimator activeAnimator;
 
     public BaseDetailsChartGroup(Context context) {
         super(context);
@@ -73,6 +74,9 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         detailsChartGroup.setHeaderClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (activeAnimator != null) {
+                    return;
+                }
                 handleZoomOutClick();
             }
         });
@@ -105,6 +109,9 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
 
     @Override
     public void onDetailsClick(int row) {
+        if (activeAnimator != null) {
+            return;
+        }
         handleDetailsClick(row);
     }
 
@@ -129,26 +136,27 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         detailsChartGroup.getChartView().setSelectedItem(-1);
         detailsChartGroup.getChartLegendView().update();
 
-        final SimpleAnimator simpleAnimator = new SimpleAnimator();
+        activeAnimator = new SimpleAnimator();
         float mainLeftBound = mainChartGroup.getChartView().leftBound;
         float mainRightBound = mainChartGroup.getChartView().rightBound;
         mainSavedCenter = (mainLeftBound + mainRightBound) / 2;
         mainSavedWidth = mainRightBound - mainLeftBound + 1;
-        simpleAnimator.addValue(ANIMATE_MAIN_CENTER, mainSavedCenter, row, new EarlyDecelerateInterpolator(0.4f));
-        simpleAnimator.addValue(ANIMATE_MAIN_WIDTH, mainSavedWidth, 5, new EarlyDecelerateInterpolator(0.8f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.1f));
-        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, getLeftDetailsRowToAnimateTo(), new LateDecelerateInterpolator(0.3f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, getRightDetailsRowToAnimateTo(), new LateDecelerateInterpolator(0.3f));
-        configureDetailsInAnimator(simpleAnimator);
-        simpleAnimator.setDuration(400);
+        activeAnimator.addValue(ANIMATE_MAIN_CENTER, mainSavedCenter, row, new EarlyDecelerateInterpolator(0.4f));
+        activeAnimator.addValue(ANIMATE_MAIN_WIDTH, mainSavedWidth, 5, new EarlyDecelerateInterpolator(0.8f));
+        activeAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.1f));
+        activeAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
+        activeAnimator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, getLeftDetailsRowToAnimateTo(), new LateDecelerateInterpolator(0.3f));
+        activeAnimator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, getRightDetailsRowToAnimateTo(), new LateDecelerateInterpolator(0.3f));
+        configureDetailsInAnimator(activeAnimator);
+        activeAnimator.setDuration(400);
         final int savedSpeed = detailsChartGroup.getChartView().getAnimationSpeed();
         detailsChartGroup.getChartView().setAnimationSpeed(100); // for faster animation in the end
         mainChartGroup.getChartView().onStartDragging();
         detailsChartGroup.getChartView().onStartDragging();
-        simpleAnimator.setListener(new SimpleAnimator.Listener() {
+        activeAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
             public void onEnd() {
+                activeAnimator = null;
                 mainChartGroup.getChartView().onStopDragging();
                 detailsChartGroup.getChartView().onStopDragging();
                 mainChartGroup.setVisibility(INVISIBLE);
@@ -157,19 +165,19 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
 
             @Override
             public void onUpdate() {
-                float center = simpleAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
-                float width = simpleAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
-                mainChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
+                float center = activeAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
+                float width = activeAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
+                mainChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
                 mainChartGroup.getChartView().setBounds(center - width / 2, center + width / 2, true);
-                if (simpleAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA) > 0f) {
+                if (activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA) > 0f) {
                     detailsChartGroup.setVisibility(VISIBLE);
                 }
-                detailsChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
-                detailsChartGroup.getChartView().setBounds(simpleAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
-                        simpleAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
+                detailsChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
+                detailsChartGroup.getChartView().setBounds(activeAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
+                        activeAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
             }
         });
-        simpleAnimator.start();
+        activeAnimator.start();
     }
 
     protected void configureDetailsInAnimator(SimpleAnimator simpleAnimator) {
@@ -180,38 +188,39 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
 
     protected void handleZoomOutClick() {
         mainChartGroup.setVisibility(VISIBLE);
-        final SimpleAnimator simpleAnimator = new SimpleAnimator();
+        activeAnimator = new SimpleAnimator();
         float mainCenter = (mainChartGroup.getChartView().leftBound + mainChartGroup.getChartView().rightBound) / 2;
         float mainWidth = mainChartGroup.getChartView().rightBound - mainChartGroup.getChartView().leftBound;
-        simpleAnimator.addValue(ANIMATE_MAIN_CENTER, mainCenter, mainSavedCenter, new LateDecelerateInterpolator(0.5f));
-        simpleAnimator.addValue(ANIMATE_MAIN_WIDTH, mainWidth, mainSavedWidth, new LateDecelerateInterpolator(0.4f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
-        simpleAnimator.addValue(ANIMATE_MAIN_ALPHA, 0f, 1f, new LateLinearInterpolator(0.3f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
-        simpleAnimator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
-        configureDetailsOutAnimator(simpleAnimator);
-        simpleAnimator.setDuration(400);
+        activeAnimator.addValue(ANIMATE_MAIN_CENTER, mainCenter, mainSavedCenter, new LateDecelerateInterpolator(0.5f));
+        activeAnimator.addValue(ANIMATE_MAIN_WIDTH, mainWidth, mainSavedWidth, new LateDecelerateInterpolator(0.4f));
+        activeAnimator.addValue(ANIMATE_DETAILS_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
+        activeAnimator.addValue(ANIMATE_MAIN_ALPHA, 0f, 1f, new LateLinearInterpolator(0.3f));
+        activeAnimator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
+        activeAnimator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
+        configureDetailsOutAnimator(activeAnimator);
+        activeAnimator.setDuration(400);
         final int savedSpeed = mainChartGroup.getChartView().getAnimationSpeed();
         mainChartGroup.getChartView().setAnimationSpeed(100); // for faster animation in the end
-        simpleAnimator.setListener(new SimpleAnimator.Listener() {
+        activeAnimator.setListener(new SimpleAnimator.Listener() {
             @Override
             public void onEnd() {
+                activeAnimator = null;
                 detailsChartGroup.setVisibility(INVISIBLE);
                 mainChartGroup.getChartView().setAnimationSpeed(savedSpeed);
             }
 
             @Override
             public void onUpdate() {
-                float center = simpleAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
-                float width = simpleAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
-                mainChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
+                float center = activeAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
+                float width = activeAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
+                mainChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA));
                 mainChartGroup.getChartView().setBounds(center - width / 2, center + width / 2, true);
-                detailsChartGroup.setAlpha(simpleAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
-                detailsChartGroup.getChartView().setBounds(simpleAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
-                        simpleAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
+                detailsChartGroup.setAlpha(activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA));
+                detailsChartGroup.getChartView().setBounds(activeAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
+                        activeAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
             }
         });
-        simpleAnimator.start();
+        activeAnimator.start();
     }
 
     protected int floorIndexInArray(long value, long values[]) {

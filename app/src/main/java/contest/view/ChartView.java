@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
@@ -830,6 +831,7 @@ public class ChartView extends View implements RangeListener {
             float fontHeight = GeneralUtils.getFontHeight(textPaint);
             int viewWidth = getMeasuredWidth();
 
+            int initialLineAlpha = linePaint.getAlpha();
             for (int i = 0; i < lines.size(); ++i) {
                 VertGridLine line = lines.valueAt(i);
 
@@ -837,7 +839,7 @@ public class ChartView extends View implements RangeListener {
                 float y = gridToScreenY(ChartDataSource.YAxis.LEFT, lines.keyAt(i));
                 float x2 = viewWidth - rightGridOffset;
 
-                int alpha = linePaint.getAlpha() * Math.max(line.alphaLeft, line.alphaRight) / 255;
+                int alpha = initialLineAlpha * Math.max(line.alphaLeft, line.alphaRight) / 255;
                 if (alpha != 0) {
                     linePaint.setAlpha(alpha);
                     canvas.drawLine(x1, y, x2, y, linePaint);
@@ -861,6 +863,7 @@ public class ChartView extends View implements RangeListener {
                             textPaint);
                 }
             }
+            linePaint.setAlpha(initialLineAlpha);
         }
 
         void reset() {
@@ -1313,6 +1316,7 @@ public class ChartView extends View implements RangeListener {
         setHintShadowRadius(GeneralUtils.dp2px(getContext(), 2.5f));
         setHintBorderRadius(GeneralUtils.dp2px(getContext(), 4));
         setGesturesEnabled(true);
+        setChartBackgroundColor(Color.WHITE);
         updateGridOffsets();
     }
 
@@ -1814,15 +1818,21 @@ public class ChartView extends View implements RangeListener {
             return;
         }
 
+        boolean clear = false;
         if (hintBitmap == null) {
             hintBitmap = Bitmap.createBitmap((int) calculatedHintWidth, (int) calculatedHintHeight, Bitmap.Config.ARGB_8888);
             hintBitmapSrcRect.left = 0;
             hintBitmapSrcRect.top = 0;
             hintBitmapSrcRect.right = hintBitmap.getWidth();
             hintBitmapSrcRect.bottom = hintBitmap.getHeight();
+        } else {
+            clear = true;
         }
 
         Canvas canvas = new Canvas(hintBitmap);
+        if (clear) {
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.MULTIPLY);
+        }
         RectF hintRect = new RectF(hintShadowRadius * 2, hintShadowRadius * 2, calculatedHintWidth - hintShadowRadius * 2, calculatedHintHeight - hintShadowRadius * 2);
         canvas.drawRoundRect(hintRect, hintBorderRadius, hintBorderRadius, hintBodyPaint);
 
