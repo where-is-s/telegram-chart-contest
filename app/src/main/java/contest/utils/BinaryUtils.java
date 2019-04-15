@@ -1,6 +1,7 @@
 package contest.utils;
 
 import android.content.Context;
+import android.util.LruCache;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -11,7 +12,13 @@ import java.io.InputStream;
  */
 public class BinaryUtils {
 
+    private static LruCache<String, long[]> fileCache = new LruCache<>(20);
+
     public static long[] readArrayFromAssets(Context context, String assetName) {
+        long cached[] = fileCache.get(assetName);
+        if (cached != null) {
+            return cached;
+        }
         try {
             InputStream inputStream = context.getAssets().open(assetName);
             DataInputStream dataInputStream = new DataInputStream(inputStream);
@@ -28,6 +35,7 @@ public class BinaryUtils {
                 array[i] = value;
             }
             inputStream.close();
+            fileCache.put(assetName,  array);
             return array;
         } catch (IOException e) {
             e.printStackTrace();
@@ -50,9 +58,6 @@ public class BinaryUtils {
             } else {
                 break;
             }
-            if (dateArray[i] >= beginTimeInt && dateArray[i] <= endTimeInt) {
-                dateArray[i] *= 1000L; // convert back to milliseconds
-            }
         }
         if (start == -1) {
             return new long[arrays][];
@@ -64,6 +69,9 @@ public class BinaryUtils {
         long result[][] = new long[arrays][];
         result[0] = new long[length];
         System.arraycopy(dateArray, start, result[0], 0, length);
+        for (int i = 0; i < length; ++i) {
+            result[0][i] *= 1000L; // convert back to milliseconds
+        }
         for (int i = 1; i < arrays; ++i) {
             long array[] = readArrayFromAssets(context, baseName + "_" + i + ".bin");
             result[i] = new long[length];
