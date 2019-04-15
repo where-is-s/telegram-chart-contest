@@ -18,6 +18,8 @@ import contest.utils.SimpleAnimator;
  */
 public class PieDetailsChartGroup extends BaseDetailsChartGroup {
 
+    private int selectedDayRow;
+
     public PieDetailsChartGroup(Context context) {
         super(context);
     }
@@ -65,6 +67,9 @@ public class PieDetailsChartGroup extends BaseDetailsChartGroup {
             long valuesCopy[] = new long[length];
             System.arraycopy(mainDataSource.getColumn(i).getValues(), sourceLeftRow, valuesCopy, 0, length);
             ((BaseColumnDataSource) detailsDataSource.getColumn(i)).setValues(valuesCopy);
+            if (i == 0) {
+                selectedDayRow = floorIndexInArray(selectedDayTime, valuesCopy);
+            }
         }
 
         detailsDataSource.updateRowsCount();
@@ -82,7 +87,7 @@ public class PieDetailsChartGroup extends BaseDetailsChartGroup {
         detailsChartGroup.setChartDataSource(detailsDataSource);
         detailsChartGroup.getChartView().setSelectedItem(-1);
         detailsChartGroup.getChartLegendView().update();
-        detailsChartGroup.getChartView().setBounds(detailsDataSource.getRowsCount() / 2, detailsDataSource.getRowsCount() / 2, true);
+        detailsChartGroup.getChartView().setBounds(selectedDayRow, selectedDayRow, true);
         detailsChartGroup.setVisibility(VISIBLE);
 
         activeAnimator = new SimpleAnimator();

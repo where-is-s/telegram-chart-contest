@@ -287,6 +287,12 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
 
     protected int floorIndexInArray(long value, long values[]) {
         int idx = -1;
+        if (values.length == 0) {
+            return idx;
+        }
+        if (values[values.length - 1] < value) {
+            return values.length;
+        }
         for (int i = 0; i < values.length; ++i) {
             if (values[i] <= value) {
                 idx = i;

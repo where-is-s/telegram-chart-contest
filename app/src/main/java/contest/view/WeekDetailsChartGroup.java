@@ -66,9 +66,8 @@ public class WeekDetailsChartGroup extends BaseDetailsChartGroup {
             leftRow = 0;
         }
         if (rightRow == -1) {
-            rightRow = arrays[0].length;
+            rightRow = arrays[0].length - 1;
         }
-        rightRow--;
         detailsDataSource.updateRowsCount();
     }
 

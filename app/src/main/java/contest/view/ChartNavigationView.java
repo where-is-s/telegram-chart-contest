@@ -401,14 +401,17 @@ public class ChartNavigationView extends View implements RangeListener {
                             windowLeftRow = Math.max(0, Math.min(chartDataSource.getRowsCount() - 1 - windowSizeRows, newWindowLeftRow));
                             windowRightRow = Math.min(chartDataSource.getRowsCount() - 1, Math.max(0 + windowSizeRows, windowLeftRow + windowSizeRows));
                         } else {
+                            ColumnDataSource xColumn = chartDataSource.getColumn(chartDataSource.getXAxisValueSourceColumn());
+                            long leftValue = xColumn.getValue((int) windowLeftRow);
+                            long rightValue = xColumn.getValue((int) windowRightRow);
+                            int windowSizeSnaps = Math.round((rightValue - leftValue) / (float) snapToXDistance);
                             float snapLeftRow = snapToNearestRow(newWindowLeftRow);
                             if (snapLeftRow != windowLeftRow && snapLeftRow < chartDataSource.getRowsCount() && windowAnimator == null) {
                                 float snapRightRow = snapToNearestRow(snapLeftRow + windowSizeRows);
-                                if (!isChartType(ChartType.PIE)) {
-                                    snapRightRow--;
-                                }
-                                float newWindowSize = snapRightRow - snapLeftRow;
-                                if (newWindowSize == windowSizeRows
+                                leftValue = xColumn.getValue((int) snapLeftRow);
+                                rightValue = xColumn.getValue((int) snapRightRow);
+                                int newWindowSizeSnaps = Math.round((rightValue - leftValue) / (float) snapToXDistance);
+                                if (windowSizeSnaps == newWindowSizeSnaps
                                         && (snapRightRow > snapLeftRow || (snapRightRow == snapLeftRow && isChartType(ChartType.PIE)))) {
                                     animateTo(snapLeftRow, snapRightRow);
                                 }
@@ -722,7 +725,8 @@ public class ChartNavigationView extends View implements RangeListener {
     private float getWindowLeft() {
         float windowLeft = gridToScreenX(windowLeftRow);
         if (isChartType(ChartType.PIE)) {
-            windowLeft = windowLeft - gridStepX * windowLeftRow / (chartDataSource.getRowsCount() - 1);
+            float windowSize = (chartDataSource.getRowsCount()) <= 1 ? 0 : (gridWidth / chartDataSource.getRowsCount());
+            windowLeft = windowLeft - windowSize * windowLeftRow / (chartDataSource.getRowsCount() - 1);
         }
         return windowLeft;
     }
@@ -730,7 +734,8 @@ public class ChartNavigationView extends View implements RangeListener {
     private float getWindowRight() {
         float windowRight = gridToScreenX(windowRightRow);
         if (isChartType(ChartType.PIE)) {
-            windowRight = windowRight + gridStepX - gridStepX * windowRightRow / (chartDataSource.getRowsCount() - 1);
+            float windowSize = (chartDataSource.getRowsCount()) <= 1 ? 0 : (gridWidth / chartDataSource.getRowsCount());
+            windowRight = windowRight + windowSize - windowSize * windowRightRow / (chartDataSource.getRowsCount() - 1);
         }
         return windowRight;
     }
