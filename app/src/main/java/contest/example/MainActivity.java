@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.text.Html;
 import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -58,15 +59,15 @@ public class MainActivity extends Activity {
         chartGroups.clear();
         addSpacer(linearLayout);
         addDetailsChartGroup("Followers", new WeekDetailsChartGroup(this),
-                Data_1.chartDataSource, Data_1b.class.getSimpleName(), Data_1b.chartDataSource);
+                Data_1.chartDataSource, "Data_1b", Data_1b.chartDataSource);
         addDetailsChartGroup("Interactions", new WeekDetailsChartGroup(this),
-                Data_2.chartDataSource, Data_2b.class.getSimpleName(), Data_2b.chartDataSource);
+                Data_2.chartDataSource, "Data_2b", Data_2b.chartDataSource);
         addDetailsChartGroup("Fruits", new WeekDetailsChartGroup(this),
-                Data_3.chartDataSource, Data_3b.class.getSimpleName(), Data_3b.chartDataSource);
+                Data_3.chartDataSource, "Data_3b", Data_3b.chartDataSource);
         addDetailsChartGroup("Views", new ThreeDayDetailsChartGroup(this),
-                Data_4.chartDataSource, Data_4b.class.getSimpleName(), Data_4b.chartDataSource);
+                Data_4.chartDataSource, "Data_4b", Data_4b.chartDataSource);
         addDetailsChartGroup("Fruits Ratio", new PieDetailsChartGroup(this),
-                Data_5.chartDataSource, null, Data_5b.chartDataSource);
+                Data_5.chartDataSource, "Data_5b", Data_5b.chartDataSource);
 
         settingsLayout = new LinearLayout(this);
         settingsLayout.setOrientation(LinearLayout.VERTICAL);
@@ -82,7 +83,7 @@ public class MainActivity extends Activity {
         settingsHeader.setText("Settings");
         settingsLayout.addView(settingsHeader, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        addSetting("Better zoom transitions (slower)", new CompoundButton.OnCheckedChangeListener() {
+        addSetting("Detailed zoom transitions (slower)", new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 for (BaseDetailsChartGroup chartGroup: chartGroups) {
@@ -100,7 +101,18 @@ public class MainActivity extends Activity {
         });
 
         linearLayout.addView(settingsLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        addSpacer(linearLayout);
+        View spacer = addSpacer(linearLayout);
+        ViewGroup.LayoutParams layoutParams = spacer.getLayoutParams();
+        layoutParams.height = GeneralUtils.dp2px(this, 60);
+        spacer.setLayoutParams(layoutParams);
+
+        TextView signature = new TextView(this);
+        signature.setText("by Alex K, 2019");
+        signature.setTextColor(0x80808080);
+        signature.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        FrameLayout.LayoutParams signatureLayoutParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        signatureLayoutParams.gravity = Gravity.CENTER;
+        ((FrameLayout) spacer).addView(signature, signatureLayoutParams);
 
         scrollView.addView(linearLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -138,7 +150,7 @@ public class MainActivity extends Activity {
         settingsLayout.addView(settingCheckBox, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
-    private void addSpacer(LinearLayout linearLayout) {
+    private FrameLayout addSpacer(LinearLayout linearLayout) {
         FrameLayout spacer = new FrameLayout(this);
         View shadowView = new View(this);
         shadowView.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0x10000000, 0x00000000}));
@@ -146,6 +158,7 @@ public class MainActivity extends Activity {
         spacer.setBackgroundColor(0xfff0f0f0);
         linearLayout.addView(spacer, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, GeneralUtils.dp2px(this, 24)));
         spacers.add(spacer);
+        return spacer;
     }
 
     private Bitmap getNightBitmap() {

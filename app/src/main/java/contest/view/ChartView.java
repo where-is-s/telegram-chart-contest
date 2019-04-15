@@ -691,7 +691,6 @@ public class ChartView extends View implements RangeListener {
                 for (int chartIdx = 0; chartIdx < fastValues.length - 1; ++chartIdx) {
                     float opacityMultiplier = chartIdx != animatingColumnIdx ? 1f : animatingColumnOpacity;
                     curValue -= fastValues[chartIdx][row + lefterBound] * opacityMultiplier / total * gridHeight;
-                    // TODO: optimize lines?
                     if (row == 0) {
                         chartPaths[chartIdx].moveTo(firstX, curValue);
                     } else {

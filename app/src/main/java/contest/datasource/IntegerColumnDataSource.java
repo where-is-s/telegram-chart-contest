@@ -26,7 +26,7 @@ public class IntegerColumnDataSource extends BaseColumnDataSource {
 
     @Override
     protected boolean shouldPutInCache(long value, ValueFormatType valueFormatType) {
-        return value % 1000 == 0;
+        return value % 500 == 0;
     }
 
     @Override
@@ -36,7 +36,11 @@ public class IntegerColumnDataSource extends BaseColumnDataSource {
                 if (value < 10000) {
                     return String.valueOf(value);
                 } else if (value < 1000000) {
-                    return String.format(Locale.getDefault(), "%dK", (int) (value/1000));
+                    if (getYAxis().equals(ChartDataSource.YAxis.RIGHT)) { // TODO: fix it in future
+                        return String.format(Locale.getDefault(), "%.1fK", value / 1000f);
+                    } else {
+                        return String.format(Locale.getDefault(), "%dK", (int) (value / 1000));
+                    }
                 } else if (value < 1000000000L) {
                     return String.format(Locale.getDefault(), "%dM", value/1000000L);
                 } else {

@@ -134,7 +134,6 @@ public class ChartLegendView extends LinearLayout {
             checkBox.setChecked(chartDataSource.isColumnVisible(c), false);
             checkBox.setTag(c);
             checkBox.setListener(checkedChangeListener);
-            checkBox.setTextSize(GeneralUtils.sp2px(getContext(), 16));
             int dp8 = GeneralUtils.dp2px(getContext(), 8);
             checkBox.setPadding(dp8, dp8, 0, 0);
             checkBox.setBackgroundColor(columnDataSource.getColor());
