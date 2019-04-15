@@ -28,6 +28,8 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
     static final int ANIMATE_MAIN_ALPHA = 4;
     static final int ANIMATE_DETAILS_LEFT = 5;
     static final int ANIMATE_DETAILS_RIGHT = 6;
+    static final int ANIMATE_DETAILS_SCALE = 7;
+    static final int ANIMATE_MAIN_SCALE = 8;
 
     ChartGroup mainChartGroup;
     ChartGroup detailsChartGroup;
@@ -37,6 +39,7 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
     float mainSavedCenter;
     float mainSavedWidth;
     protected SimpleAnimator activeAnimator;
+    protected boolean useSimpleAnimations = true;
 
     public BaseDetailsChartGroup(Context context) {
         super(context);
@@ -133,12 +136,17 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
         float mainRightBound = mainChartGroup.getChartView().rightBound;
         mainSavedCenter = (mainLeftBound + mainRightBound) / 2;
         mainSavedWidth = mainRightBound - mainLeftBound + 1;
-        activeAnimator.addValue(ANIMATE_MAIN_CENTER, mainSavedCenter, row, new EarlyDecelerateInterpolator(0.3f));
-        activeAnimator.addValue(ANIMATE_MAIN_WIDTH, mainSavedWidth, 5, new EarlyDecelerateInterpolator(0.8f));
         activeAnimator.addValue(ANIMATE_DETAILS_ALPHA, 0f, 1f, new LateLinearInterpolator(0.3f));
         activeAnimator.addValue(ANIMATE_MAIN_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
+        if (useSimpleAnimations) {
+            activeAnimator.addValue(ANIMATE_DETAILS_SCALE, 0.5f, 1f, new LateLinearInterpolator(0.1f));
+            activeAnimator.addValue(ANIMATE_MAIN_SCALE, 1f, 0.7f, new EarlyLinearInterpolator(0.8f));
+        } else {
+            activeAnimator.addValue(ANIMATE_MAIN_CENTER, mainSavedCenter, row, new EarlyDecelerateInterpolator(0.3f));
+            activeAnimator.addValue(ANIMATE_MAIN_WIDTH, mainSavedWidth, 5, new EarlyDecelerateInterpolator(0.8f));
+        }
         configureDetailsInAnimator(activeAnimator);
-        activeAnimator.setDuration(400);
+        activeAnimator.setDuration(useSimpleAnimations ? 250 : 400);
         final int savedSpeed = detailsChartGroup.getChartView().getAnimationSpeed();
         detailsChartGroup.getChartView().setAnimationSpeed(100); // for faster animation in the end
         mainChartGroup.getChartView().onStartDragging();
@@ -151,18 +159,32 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
                 detailsChartGroup.getChartView().onStopDragging();
                 mainChartGroup.setVisibility(INVISIBLE);
                 detailsChartGroup.getChartView().setAnimationSpeed(savedSpeed);
+                mainChartGroup.getChartView().setScaleX(1f);
+                mainChartGroup.getChartView().setScaleY(1f);
+                detailsChartGroup.getChartView().setScaleX(1f);
+                detailsChartGroup.getChartView().setScaleY(1f);
             }
 
             @Override
             public void onUpdate() {
-                float center = activeAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
-                float width = activeAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
-                if (setAlphaAndVisiblity(mainChartGroup, activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA))) {
-                    mainChartGroup.getChartView().setBounds(center - width / 2, center + width / 2, true);
+                if (setAlphaAndVisibility(mainChartGroup, activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA))) {
+                    if (useSimpleAnimations) {
+                        mainChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                        mainChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                    } else {
+                        float center = activeAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
+                        float width = activeAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
+                        mainChartGroup.getChartView().setBounds(center - width / 2, center + width / 2, true);
+                    }
                 }
-                if (setAlphaAndVisiblity(detailsChartGroup, activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA))) {
-                    detailsChartGroup.getChartView().setBounds(activeAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
-                            activeAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
+                if (setAlphaAndVisibility(detailsChartGroup, activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA))) {
+                    if (useSimpleAnimations) {
+                        detailsChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                        detailsChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                    } else {
+                        detailsChartGroup.getChartView().setBounds(activeAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
+                                activeAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
+                    }
                 }
             }
         });
@@ -170,25 +192,30 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
     }
 
     protected void configureDetailsInAnimator(SimpleAnimator animator) {
-        animator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, 0, new LateDecelerateInterpolator(0.3f));
-        animator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, detailsDataSource.getRowsCount() - 1, new LateDecelerateInterpolator(0.3f));
-    }
-
-    protected void configureDetailsOutAnimator(SimpleAnimator animator) {
-        animator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
-        animator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
+        if (useSimpleAnimations) {
+            detailsChartGroup.getChartView().setBounds(
+                    0, detailsDataSource.getRowsCount() - 1, true);
+        } else {
+            animator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, 0, new LateDecelerateInterpolator(0.3f));
+            animator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, detailsDataSource.getRowsCount() - 1, new LateDecelerateInterpolator(0.3f));
+        }
     }
 
     protected void handleZoomOutClick() {
         activeAnimator = new SimpleAnimator();
         float mainCenter = (mainChartGroup.getChartView().leftBound + mainChartGroup.getChartView().rightBound) / 2;
         float mainWidth = mainChartGroup.getChartView().rightBound - mainChartGroup.getChartView().leftBound;
-        activeAnimator.addValue(ANIMATE_MAIN_CENTER, mainCenter, mainSavedCenter, new LateDecelerateInterpolator(0.5f));
-        activeAnimator.addValue(ANIMATE_MAIN_WIDTH, mainWidth, mainSavedWidth, new LateDecelerateInterpolator(0.4f));
         activeAnimator.addValue(ANIMATE_DETAILS_ALPHA, 1f, 0f, new EarlyLinearInterpolator(0.8f));
         activeAnimator.addValue(ANIMATE_MAIN_ALPHA, 0f, 1f, new LateLinearInterpolator(0.3f));
+        if (useSimpleAnimations) {
+            activeAnimator.addValue(ANIMATE_DETAILS_SCALE, 1f, 0.7f, new EarlyLinearInterpolator(0.9f));
+            activeAnimator.addValue(ANIMATE_MAIN_SCALE, 0.5f, 1f, new LateLinearInterpolator(0.2f));
+        } else {
+            activeAnimator.addValue(ANIMATE_MAIN_CENTER, mainCenter, mainSavedCenter, new LateDecelerateInterpolator(0.5f));
+            activeAnimator.addValue(ANIMATE_MAIN_WIDTH, mainWidth, mainSavedWidth, new LateDecelerateInterpolator(0.4f));
+        }
         configureDetailsOutAnimator(activeAnimator);
-        activeAnimator.setDuration(400);
+        activeAnimator.setDuration(useSimpleAnimations ? 250 : 400);
         final int savedSpeed = mainChartGroup.getChartView().getAnimationSpeed();
         mainChartGroup.getChartView().setAnimationSpeed(100); // for faster animation in the end
         mainChartGroup.getChartView().onStartDragging();
@@ -201,25 +228,46 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
                 detailsChartGroup.getChartView().onStopDragging();
                 detailsChartGroup.setVisibility(INVISIBLE);
                 mainChartGroup.getChartView().setAnimationSpeed(savedSpeed);
+                mainChartGroup.getChartView().setScaleX(1f);
+                mainChartGroup.getChartView().setScaleY(1f);
+                detailsChartGroup.getChartView().setScaleX(1f);
+                detailsChartGroup.getChartView().setScaleY(1f);
             }
 
             @Override
             public void onUpdate() {
-                float center = activeAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
-                float width = activeAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
-                if (setAlphaAndVisiblity(mainChartGroup, activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA))) {
-                    mainChartGroup.getChartView().setBounds(center - width / 2, center + width / 2, true);
+                if (setAlphaAndVisibility(mainChartGroup, activeAnimator.getFloatValue(ANIMATE_MAIN_ALPHA))) {
+                    if (useSimpleAnimations) {
+                        mainChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                        mainChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_MAIN_SCALE));
+                    } else {
+                        float center = activeAnimator.getFloatValue(ANIMATE_MAIN_CENTER);
+                        float width = activeAnimator.getFloatValue(ANIMATE_MAIN_WIDTH);
+                        mainChartGroup.getChartView().setBounds(center - width / 2, center + width / 2, true);
+                    }
                 }
-                if (setAlphaAndVisiblity(detailsChartGroup, activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA))) {
-                    detailsChartGroup.getChartView().setBounds(activeAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
-                            activeAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
+                if (setAlphaAndVisibility(detailsChartGroup, activeAnimator.getFloatValue(ANIMATE_DETAILS_ALPHA))) {
+                    if (useSimpleAnimations) {
+                        detailsChartGroup.getChartView().setScaleX(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                        detailsChartGroup.getChartView().setScaleY(activeAnimator.getFloatValue(ANIMATE_DETAILS_SCALE));
+                    } else {
+                        detailsChartGroup.getChartView().setBounds(activeAnimator.getFloatValue(ANIMATE_DETAILS_LEFT),
+                                activeAnimator.getFloatValue(ANIMATE_DETAILS_RIGHT), true);
+                    }
                 }
             }
         });
         activeAnimator.start();
     }
 
-    protected boolean setAlphaAndVisiblity(View view, float alpha) {
+    protected void configureDetailsOutAnimator(SimpleAnimator animator) {
+        if (!useSimpleAnimations) {
+            animator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
+            animator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
+        }
+    }
+
+    protected boolean setAlphaAndVisibility(View view, float alpha) {
         if (view.getVisibility() == INVISIBLE) {
             if (alpha < 0.001f) {
                 return false;
@@ -295,6 +343,14 @@ public abstract class BaseDetailsChartGroup extends FrameLayout implements Chart
     public void setNavigationWindowColor(int color) {
         mainChartGroup.getChartNavigationView().setWindowColor(color);
         detailsChartGroup.getChartNavigationView().setWindowColor(color);
+    }
+
+    public ChartGroup getMainChartGroup() {
+        return mainChartGroup;
+    }
+
+    public void setSimpleAnimations(boolean useSimpleAnimations) {
+        this.useSimpleAnimations = useSimpleAnimations;
     }
 
 }

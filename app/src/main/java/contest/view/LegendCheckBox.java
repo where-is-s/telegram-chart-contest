@@ -14,6 +14,7 @@ import android.util.AttributeSet;
 import android.view.View;
 
 import contest.utils.GeneralUtils;
+import contest.utils.SimpleAnimator;
 import telegram.contest.chart.R;
 
 /**
@@ -32,9 +33,14 @@ public class LegendCheckBox extends View {
     private RectF drawRect = new RectF();
     private Rect textBounds = new Rect();
     private Bitmap checkBitmap;
+    private Bitmap checkedBitmap;
+    private Bitmap uncheckedBitmap;
+    private Paint copyPaint = new Paint();
 
     private String text;
     private boolean checked = true;
+    private float checkedOpacity;
+    private SimpleAnimator checkedAnimator;
     private float edgeRadius;
 
     private Listener listener;
@@ -74,7 +80,7 @@ public class LegendCheckBox extends View {
         setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                setChecked(!isChecked());
+                setChecked(!isChecked(), true);
                 if (listener != null) {
                     listener.onCheckedChanged(LegendCheckBox.this, isChecked());
                 }
@@ -98,15 +104,73 @@ public class LegendCheckBox extends View {
         float width = getPaddingLeft() + getPaddingRight() + 2 * edgeRadius + checkBitmap.getWidth() + textPaint.measureText(text);
         float height = getPaddingTop() + getPaddingBottom() + 2 * edgeRadius;
         setMeasuredDimension((int) width, (int) height);
+
+        updateBitmaps();
+    }
+
+    private void updateBitmaps() {
+        int width = getMeasuredWidth();
+        int height = getMeasuredHeight();
+
+        if (width == 0 || height == 0) {
+            return;
+        }
+        checkedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        uncheckedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+
+        Canvas canvas = new Canvas(checkedBitmap);
+        drawRect.left = getPaddingLeft();
+        drawRect.top = getPaddingTop();
+        drawRect.right = width - getPaddingRight();
+        drawRect.bottom = height - getPaddingBottom();
+        backgroundPaint.setStyle(Paint.Style.FILL);
+        canvas.drawRoundRect(drawRect, edgeRadius, edgeRadius, backgroundPaint);
+        canvas.drawBitmap(checkBitmap, drawRect.left + edgeRadius * 0.8f, drawRect.centerY() - checkBitmap.getHeight() * 0.5f, null);
+        textPaint.getTextBounds(text, 0, text.length(), textBounds);
+        textPaint.setColor(Color.WHITE);
+        canvas.drawText(text, drawRect.left + edgeRadius + checkBitmap.getWidth(), drawRect.centerY() - textBounds.exactCenterY(), textPaint);
+
+        canvas = new Canvas(uncheckedBitmap);
+        float offset = backgroundPaint.getStrokeWidth() * 0.5f;
+        drawRect.left = getPaddingLeft() + offset;
+        drawRect.top = getPaddingTop() + offset;
+        drawRect.right = width - offset - getPaddingRight();
+        drawRect.bottom = height - offset - getPaddingBottom();
+        backgroundPaint.setStyle(Paint.Style.STROKE);
+        canvas.drawRoundRect(drawRect, edgeRadius, edgeRadius, backgroundPaint);
+        textPaint.getTextBounds(text, 0, text.length(), textBounds);
+        textPaint.setColor(backgroundPaint.getColor());
+        canvas.drawText(text, drawRect.centerX() - textBounds.exactCenterX(), drawRect.centerY() - textBounds.exactCenterY(), textPaint);
     }
 
     public boolean isChecked() {
         return checked;
     }
 
-    public void setChecked(boolean checked) {
+    public void setChecked(final boolean checked, boolean animate) {
         this.checked = checked;
-        invalidate();
+        if (checkedAnimator != null) {
+            checkedAnimator.cancel();
+        }
+        if (animate) {
+            checkedAnimator = new SimpleAnimator();
+            checkedAnimator.setDuration(100);
+            checkedAnimator.setListener(new SimpleAnimator.Listener() {
+                @Override
+                public void onEnd() {
+                    checkedAnimator = null;
+                }
+
+                @Override
+                public void onUpdate() {
+                    checkedOpacity = checked ? checkedAnimator.getFraction() : (1 - checkedAnimator.getFraction());
+                    invalidate();
+                }
+            });
+            checkedAnimator.start();
+        } else {
+            checkedOpacity = checked ? 1f : 0f;
+        }
     }
 
     public void setText(String text) {
@@ -130,31 +194,15 @@ public class LegendCheckBox extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        int width = getMeasuredWidth();
-        int height = getMeasuredHeight();
-
-        if (checked) {
-            drawRect.left = getPaddingLeft();
-            drawRect.top = getPaddingTop();
-            drawRect.right = width - getPaddingRight();
-            drawRect.bottom = height - getPaddingBottom();
-            backgroundPaint.setStyle(Paint.Style.FILL);
-            canvas.drawRoundRect(drawRect, edgeRadius, edgeRadius, backgroundPaint);
-            canvas.drawBitmap(checkBitmap, drawRect.left + edgeRadius * 0.8f, drawRect.centerY() - checkBitmap.getHeight() * 0.5f, null);
-            textPaint.getTextBounds(text, 0, text.length(), textBounds);
-            textPaint.setColor(Color.WHITE);
-            canvas.drawText(text, drawRect.left + edgeRadius + checkBitmap.getWidth(), drawRect.centerY() - textBounds.exactCenterY(), textPaint);
+        if (checkedOpacity == 1f) {
+            canvas.drawBitmap(checkedBitmap, 0, 0, null);
+        } else if (checkedOpacity == 0f) {
+            canvas.drawBitmap(uncheckedBitmap, 0, 0, null);
         } else {
-            float offset = backgroundPaint.getStrokeWidth() * 0.5f;
-            drawRect.left = getPaddingLeft() + offset;
-            drawRect.top = getPaddingTop() + offset;
-            drawRect.right = width - offset - getPaddingRight();
-            drawRect.bottom = height - offset - getPaddingBottom();
-            backgroundPaint.setStyle(Paint.Style.STROKE);
-            canvas.drawRoundRect(drawRect, edgeRadius, edgeRadius, backgroundPaint);
-            textPaint.getTextBounds(text, 0, text.length(), textBounds);
-            textPaint.setColor(backgroundPaint.getColor());
-            canvas.drawText(text, drawRect.centerX() - textBounds.exactCenterX(), drawRect.centerY() - textBounds.exactCenterY(), textPaint);
+            copyPaint.setAlpha((int) (255 * (1f - checkedOpacity)));
+            canvas.drawBitmap(uncheckedBitmap, 0, 0, copyPaint);
+            copyPaint.setAlpha((int) (255 * checkedOpacity));
+            canvas.drawBitmap(checkedBitmap, 0, 0, copyPaint);
         }
     }
 

@@ -20,6 +20,7 @@ import android.widget.CompoundButton;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,32 +68,39 @@ public class MainActivity extends Activity {
         addDetailsChartGroup("Fruits Ratio", new PieDetailsChartGroup(this),
                 Data_5.chartDataSource, null, Data_5b.chartDataSource);
 
-//        settingsLayout = new LinearLayout(this);
-//        settingsLayout.setOrientation(LinearLayout.VERTICAL);
-//        int dp8 = GeneralUtils.dp2px(this, 8);
-//        int dp16 = GeneralUtils.dp2px(this, 16);
-//        settingsLayout.setPadding(dp16, dp16, dp16, dp8);
-//        settingsLayout.setBackgroundColor(Color.WHITE);
-//
-//        TextView settingsHeader = new TextView(this);
-//        settingsHeader.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-//        settingsHeader.setTextColor(0xff808080);
-//        settingsHeader.setTypeface(GeneralUtils.getBoldTypeface());
-//        settingsHeader.setPadding(0, dp8, dp16, dp8);
-//        settingsHeader.setText("Settings");
-//        settingsLayout.addView(settingsHeader, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-//
-//        addSetting("Disable chart gestures", new CompoundButton.OnCheckedChangeListener() {
-//            @Override
-//            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-//                for (ChartGroup chartGroup: chartGroups) {
-//                    chartGroup.getChartView().setGesturesEnabled(!isChecked);
-//                }
-//            }
-//        });
+        settingsLayout = new LinearLayout(this);
+        settingsLayout.setOrientation(LinearLayout.VERTICAL);
+        int dp8 = GeneralUtils.dp2px(this, 8);
+        int dp16 = GeneralUtils.dp2px(this, 16);
+        settingsLayout.setPadding(dp16, dp16, dp16, dp8);
 
-//        linearLayout.addView(settingsLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-//        addSpacer(linearLayout);
+        TextView settingsHeader = new TextView(this);
+        settingsHeader.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        settingsHeader.setTextColor(0xff808080);
+        settingsHeader.setTypeface(GeneralUtils.getBoldTypeface());
+        settingsHeader.setPadding(0, dp8, dp16, dp8);
+        settingsHeader.setText("Settings");
+        settingsLayout.addView(settingsHeader, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        addSetting("Better zoom transitions (slower)", new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                for (BaseDetailsChartGroup chartGroup: chartGroups) {
+                    chartGroup.setSimpleAnimations(!isChecked);
+                }
+            }
+        });
+        addSetting("Disable main chart gestures", new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                for (BaseDetailsChartGroup chartGroup: chartGroups) {
+                    chartGroup.getMainChartGroup().getChartView().setGesturesEnabled(!isChecked);
+                }
+            }
+        });
+
+        linearLayout.addView(settingsLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        addSpacer(linearLayout);
 
         scrollView.addView(linearLayout, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -185,13 +193,12 @@ public class MainActivity extends Activity {
         }
         invalidateOptionsMenu();
 
-//        settingsLayout.setBackgroundColor(darkMode ? 0xff1d2733 : 0xffffffff);
-//        for (CheckBox checkBox: settingCheckBoxes) {
-//            checkBox.setTextColor(darkMode ? Color.WHITE : Color.BLACK);
-//        }
-//        for (View separator: separators) {
-//            separator.setBackgroundColor(darkMode ? 0xff1b2433 : 0xfff0f0f0);
-//        }
+        for (CheckBox checkBox: settingCheckBoxes) {
+            checkBox.setTextColor(darkMode ? Color.WHITE : Color.BLACK);
+        }
+        for (View separator: separators) {
+            separator.setBackgroundColor(darkMode ? 0xff1b2433 : 0xfff0f0f0);
+        }
 
         for (FrameLayout spacer: spacers) {
             spacer.setBackgroundColor(darkMode ? 0xff1b2433 : 0xfff0f0f0);

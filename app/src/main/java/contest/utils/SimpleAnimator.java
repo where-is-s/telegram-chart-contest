@@ -85,6 +85,10 @@ public class SimpleAnimator implements Choreographer.FrameCallback {
         return ((FloatValue) animatedValues.get(id)).current;
     }
 
+    public float getFloatValueTo(int id) {
+        return ((FloatValue) animatedValues.get(id)).to;
+    }
+
     public float getFraction() {
         return fraction;
     }

@@ -18,9 +18,6 @@ import contest.utils.SimpleAnimator;
  */
 public class PieDetailsChartGroup extends BaseDetailsChartGroup {
 
-    private static final int ANIMATE_DETAILS_SCALE = 10;
-    private static final int ANIMATE_MAIN_SCALE = 11;
-
     public PieDetailsChartGroup(Context context) {
         super(context);
     }

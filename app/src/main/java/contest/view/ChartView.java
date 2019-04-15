@@ -33,7 +33,6 @@ import contest.datasource.ChartType;
 import contest.datasource.ColumnDataSource;
 import contest.datasource.ColumnType;
 import contest.datasource.ValueFormatType;
-import contest.utils.CallTracker;
 import contest.utils.ChartUtils;
 import contest.utils.GeneralUtils;
 import contest.utils.LateLinearInterpolator;

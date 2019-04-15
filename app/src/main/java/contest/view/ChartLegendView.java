@@ -50,7 +50,7 @@ public class ChartLegendView extends LinearLayout {
                         }
                     });
                     simpleAnimator.start();
-                    checkBox.setChecked(true);
+                    checkBox.setChecked(true, false);
                     return;
                 }
             }
@@ -73,7 +73,7 @@ public class ChartLegendView extends LinearLayout {
         public void onSetColumnVisibility(int column, boolean visible) {
             for (LegendCheckBox checkBox: checkBoxes) {
                 if (checkBox.getTag().equals(column)) {
-                    checkBox.setChecked(visible);
+                    checkBox.setChecked(visible, true);
                     break;
                 }
             }
@@ -131,7 +131,7 @@ public class ChartLegendView extends LinearLayout {
 
             LegendCheckBox checkBox = new LegendCheckBox(getContext());
             checkBox.setText(columnDataSource.getName());
-            checkBox.setChecked(chartDataSource.isColumnVisible(c));
+            checkBox.setChecked(chartDataSource.isColumnVisible(c), false);
             checkBox.setTag(c);
             checkBox.setListener(checkedChangeListener);
             checkBox.setTextSize(GeneralUtils.sp2px(getContext(), 16));

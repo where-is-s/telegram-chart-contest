@@ -430,6 +430,7 @@ public class ChartNavigationView extends View implements RangeListener {
                 }
                 invalidate();
                 if (listener != null && snapToXDistance < 0) { // when snapping, range will be animated
+                    listener.onStartDragging();
                     listener.onRangeSelected(windowLeftRow, windowRightRow);
                 }
                 return true;

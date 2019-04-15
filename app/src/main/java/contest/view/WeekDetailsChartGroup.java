@@ -73,13 +73,19 @@ public class WeekDetailsChartGroup extends BaseDetailsChartGroup {
     }
 
     protected void configureDetailsInAnimator(SimpleAnimator animator) {
-        animator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, leftRow, new LateDecelerateInterpolator(0.3f));
-        animator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, rightRow, new LateDecelerateInterpolator(0.3f));
+        if (!useSimpleAnimations) {
+            animator.addValue(ANIMATE_DETAILS_LEFT, (float) 0, leftRow, new LateDecelerateInterpolator(0.3f));
+            animator.addValue(ANIMATE_DETAILS_RIGHT, (float) detailsDataSource.getRowsCount() - 1, rightRow, new LateDecelerateInterpolator(0.3f));
+        } else {
+            detailsChartGroup.getChartView().setBounds(leftRow, rightRow, true);
+        }
     }
 
     protected void configureDetailsOutAnimator(SimpleAnimator animator) {
-        animator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
-        animator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
+        if (!useSimpleAnimations) {
+            animator.addValue(ANIMATE_DETAILS_LEFT, detailsChartGroup.getChartView().leftBound, 0, new EarlyLinearInterpolator(0.7f));
+            animator.addValue(ANIMATE_DETAILS_RIGHT, detailsChartGroup.getChartView().rightBound, detailsDataSource.getRowsCount() - 1, new EarlyLinearInterpolator(0.7f));
+        }
     }
 
 }
