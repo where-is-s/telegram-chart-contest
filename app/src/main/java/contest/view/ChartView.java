@@ -152,6 +152,7 @@ public class ChartView extends View implements RangeListener {
 
         float drawValues[] = new float[] {};
         Paint chartPaints[] = new Paint[] {};
+        float distances[] = new float[] {};
         RectF drawRect = new RectF();
         Rect textRect = new Rect();
         Paint valuePaint;
@@ -159,7 +160,7 @@ public class ChartView extends View implements RangeListener {
         float maxTextSizeSp = 36;
         float suggestedHintX;
         float suggestedHintY;
-        SimpleAnimator valuesAnimator;
+        SimpleAnimator animator;
 
         PieChartPainter() {
             valuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -179,6 +180,7 @@ public class ChartView extends View implements RangeListener {
             if (drawValues.length < visibleLineColumnSources.size()) {
                 drawValues = new float[visibleLineColumnSources.size()];
                 chartPaints = new Paint[visibleLineColumnSources.size()];
+                distances = new float[visibleLineColumnSources.size()];
             }
 
             for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
@@ -191,12 +193,12 @@ public class ChartView extends View implements RangeListener {
                 chartPaints[c] = paint;
             }
 
-            if (valuesAnimator != null) {
-                valuesAnimator.cancel();
+            if (animator != null) {
+                animator.cancel();
             }
             if (animate) {
-                valuesAnimator = new SimpleAnimator();
-                valuesAnimator.setDuration(animationSpeed / 2);
+                animator = new SimpleAnimator();
+                animator.setDuration(animationSpeed / 2);
             }
 
             int lineIdx = 0;
@@ -211,7 +213,7 @@ public class ChartView extends View implements RangeListener {
                     targetValue += valuesFast[row + lefterBound] * multiplier;
                 }
                 if (animate) {
-                    valuesAnimator.addValue(lineIdx, drawValues[lineIdx], targetValue);
+                    animator.addValue(lineIdx, drawValues[lineIdx], targetValue);
                 } else {
                     drawValues[lineIdx] = targetValue; // already animated!
                 }
@@ -219,14 +221,20 @@ public class ChartView extends View implements RangeListener {
             }
 
             if (animate) {
-                valuesAnimator.start();
-                valuesAnimator.setListener(new SimpleAnimator.Listener() {
+                animator.start();
+                animator.setListener(new SimpleAnimator.Listener() {
+                    @Override
+                    public void onEnd() {
+                        animator = null;
+                        updateHint();
+                    }
+
                     @Override
                     public void onUpdate() {
                         for (int c = 0; c < visibleLineColumnSources.size(); ++c) {
-                            drawValues[c] = valuesAnimator.getFloatValue(c);
-                            invalidate();
+                            drawValues[c] = animator.getFloatValue(c);
                         }
+                        updateHint();
                     }
                 });
             }
@@ -244,11 +252,8 @@ public class ChartView extends View implements RangeListener {
             float midAngle = (float) Math.toRadians(currentAngle + sweepAngle / 2);
             float valueDistance = baseRadius * Math.max(0.4f, 0.8f - 0.4f * sweepAngle / 180);
             if (sweepAngle < 360) {
-                if (selected) {
-                    float dp8 = GeneralUtils.dp2px(getContext(), 8);
-                    valueDistance += dp8;
-                    drawRect.offset((float) (dp8 * Math.cos(midAngle)), (float) (dp8 * Math.sin(midAngle)));
-                }
+                valueDistance += distances[item];
+                drawRect.offset((float) (distances[item] * Math.cos(midAngle)), (float) (distances[item] * Math.sin(midAngle)));
             } else {
                 valueDistance = 0;
             }
@@ -321,6 +326,43 @@ public class ChartView extends View implements RangeListener {
                 }
                 currentAngle += sweepAngle;
             }
+        }
+
+        void onSelectedChanged(final int fromIdx, final int toIdx) {
+            if (fromIdx == toIdx) {
+                return;
+            }
+            if (animator != null) {
+                animator.cancel();
+            }
+            animator = new SimpleAnimator();
+            animator.setDuration(animationSpeed / 2);
+            if (fromIdx > -1) {
+                animator.addValue(fromIdx, distances[fromIdx], 0f);
+            }
+            if (toIdx > -1) {
+                animator.addValue(toIdx, distances[toIdx], GeneralUtils.dp2px(getContext(), 8));
+            }
+            animator.setListener(new SimpleAnimator.Listener() {
+                @Override
+                public void onEnd() {
+                    animator = null;
+                    updateHint();
+                }
+
+                @Override
+                public void onUpdate() {
+                    if (fromIdx > -1) {
+                        distances[fromIdx] = animator.getFloatValue(fromIdx);
+                    }
+                    if (toIdx > -1) {
+                        distances[toIdx] = animator.getFloatValue(toIdx);
+                    }
+                    updateHint();
+                    invalidate();
+                }
+            });
+            animator.start();
         }
 
         public void updateSuggestedHintPosition() {
@@ -1734,6 +1776,9 @@ public class ChartView extends View implements RangeListener {
 
     public void setSelectedItem(int selectedItem) {
         isAnimatingThroughUI = false; // whenever we select an item, UI is not animated
+        if (isChartType(ChartType.PIE)) {
+            ((PieChartPainter) chartPainter).onSelectedChanged(this.selectedItem, selectedItem);
+        }
         this.selectedItem = selectedItem;
         updateHint();
         invalidate();
